@@ -108,7 +108,7 @@ class DonationController extends BaseController
             $modelErrors = $this->donationModel->errors();
             log_message('error', 'Failed to insert donation: ' . json_encode($modelErrors));
             log_message('error', 'Donation data: ' . json_encode($donationData));
-            
+
             if ($this->request->isAJAX()) {
                 return $this->response->setJSON([
                     'success' => false,

@@ -85,7 +85,7 @@ class MidtransLibrary
             }
 
             $result = json_decode($response, true);
-            
+
             if (empty($result['token'])) {
                 throw new \Exception('Snap token not found in response');
             }
