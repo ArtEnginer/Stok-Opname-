@@ -74,7 +74,7 @@
                         </h2>
                         <div class="bg-gray-50 rounded-lg p-6">
                             <div class="flex items-start gap-4">
-                                <img src="<?= $campaign['image'] ? base_url('writable/uploads/campaigns/' . $campaign['image']) : 'https://via.placeholder.com/150' ?>"
+                                <img src="<?= base_url('uploads/campaigns/' . ($campaign['image'] ?? 'default.jpg')) ?>"
                                     alt="<?= esc($campaign['title']) ?>"
                                     class="w-24 h-24 object-cover rounded-lg">
                                 <div class="flex-1">

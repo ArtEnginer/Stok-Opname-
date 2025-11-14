@@ -45,7 +45,8 @@
                                 <td class="py-3 px-4"><?= $campaign['id'] ?></td>
                                 <td class="py-3 px-4">
                                     <?php if ($campaign['image']): ?>
-                                        <img src="<?= base_url('writable/uploads/campaigns/' . $campaign['image']) ?>"
+
+                                        <img src="<?= base_url('uploads/campaigns/' . $campaign['image']) ?>"
                                             alt="<?= esc($campaign['title']) ?>"
                                             class="w-20 h-16 object-cover rounded">
                                     <?php else: ?>

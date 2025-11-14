@@ -56,6 +56,11 @@ class CreateDonationsTable extends Migration
                 'constraint' => 100,
                 'unique' => true,
             ],
+            'snap_token' => [
+                'type' => 'VARCHAR',
+                'constraint' => 255,
+                'null' => true,
+            ],
             'payment_proof' => [
                 'type' => 'VARCHAR',
                 'constraint' => 255,

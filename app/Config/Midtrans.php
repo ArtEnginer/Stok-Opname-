@@ -10,18 +10,18 @@ class Midtrans extends BaseConfig
      * Merchant Server Key
      * Get from Midtrans Dashboard: https://dashboard.midtrans.com/settings/config_info
      */
-    public string $serverKey = 'Mid-server-HQ-Py14lYChgsinJl_MZhL3R';
+    public string $serverKey = 'Mid-server-toKKlZWXkaLmKbywzLk3z17y';
 
     /**
      * Merchant Client Key
      * Get from Midtrans Dashboard: https://dashboard.midtrans.com/settings/config_info
      */
-    public string $clientKey = 'Mid-client-nFo7vV7ctrkKWW6c';
+    public string $clientKey = 'Mid-client-LDxz5bQpP2v2-w0V';
 
     /**
      * Set to true for production, false for sandbox
      */
-    public bool $isProduction = true;
+    public bool $isProduction = false;
 
     /**
      * Set to true to enable sanitization

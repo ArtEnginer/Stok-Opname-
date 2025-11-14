@@ -43,6 +43,11 @@ class DonationController extends BaseController
 
     public function process()
     {
+        // Disable toolbar for AJAX requests
+        if ($this->request->isAJAX()) {
+            $this->response->setHeader('X-Debug-Toolbar-Disable', '1');
+        }
+
         $validation = \Config\Services::validation();
 
         $rules = [
@@ -53,15 +58,17 @@ class DonationController extends BaseController
             'amount' => 'required|numeric|greater_than[9999]',
             'message' => 'permit_empty',
             'is_anonymous' => 'permit_empty',
-            'payment_method' => 'required|in_list[midtrans,manual]',
+            'payment_method' => 'required|in_list[midtrans]',
         ];
 
-        // Add payment proof validation only for manual payment
-        if ($this->request->getPost('payment_method') === 'manual') {
-            $rules['payment_proof'] = 'uploaded[payment_proof]|max_size[payment_proof,2048]|is_image[payment_proof]';
-        }
-
         if (!$this->validate($rules)) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Validasi gagal',
+                    'errors' => $validation->getErrors()
+                ])->setStatusCode(400);
+            }
             return redirect()->back()->withInput()->with('errors', $validation->getErrors());
         }
 
@@ -69,28 +76,17 @@ class DonationController extends BaseController
         $campaign = $this->campaignModel->find($campaignId);
 
         if (!$campaign) {
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Campaign tidak ditemukan'
+                ])->setStatusCode(404);
+            }
             return redirect()->back()->with('error', 'Campaign tidak ditemukan');
         }
 
-        $paymentMethod = $this->request->getPost('payment_method');
-        $paymentProofName = null;
-
-        // Handle manual payment with proof upload
-        if ($paymentMethod === 'manual') {
-            $paymentProof = $this->request->getFile('payment_proof');
-
-            if ($paymentProof && $paymentProof->isValid() && !$paymentProof->hasMoved()) {
-                $paymentProofName = $paymentProof->getRandomName();
-                $uploadPath = WRITEPATH . 'uploads/payments';
-
-                // Create directory if not exists
-                if (!is_dir($uploadPath)) {
-                    mkdir($uploadPath, 0755, true);
-                }
-
-                $paymentProof->move($uploadPath, $paymentProofName);
-            }
-        }
+        // Generate transaction ID
+        $transactionId = 'TRX' . date('YmdHis') . rand(1000, 9999);
 
         $donationData = [
             'campaign_id' => $campaignId,
@@ -100,74 +96,99 @@ class DonationController extends BaseController
             'amount' => $this->request->getPost('amount'),
             'message' => $this->request->getPost('message'),
             'is_anonymous' => $this->request->getPost('is_anonymous') ? 1 : 0,
-            'payment_method' => $paymentMethod,
-            'payment_proof' => $paymentProofName,
+            'payment_method' => 'midtrans',
+            'payment_proof' => null,
             'status' => 'pending',
+            'transaction_id' => $transactionId,
         ];
 
         $donationId = $this->donationModel->insert($donationData);
 
         if (!$donationId) {
+            $modelErrors = $this->donationModel->errors();
+            log_message('error', 'Failed to insert donation: ' . json_encode($modelErrors));
+            log_message('error', 'Donation data: ' . json_encode($donationData));
+            
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Gagal memproses donasi',
+                    'errors' => $modelErrors,
+                    'debug' => $donationData
+                ])->setStatusCode(500);
+            }
             return redirect()->back()->withInput()->with('error', 'Gagal memproses donasi');
         }
 
         $donation = $this->donationModel->find($donationId);
 
-        // Handle Midtrans payment
-        if ($paymentMethod === 'midtrans') {
-            try {
-                log_message('info', 'Processing Midtrans payment for donation ID: ' . $donationId);
+        // Process Midtrans payment
+        try {
+            log_message('info', 'Processing Midtrans payment for donation ID: ' . $donationId);
 
-                $transactionParams = $this->midtrans->buildTransactionParams([
-                    'transaction_id' => $donation['transaction_id'],
-                    'campaign_id' => $campaign['id'],
-                    'campaign_title' => $campaign['title'],
-                    'amount' => $donation['amount'],
-                    'donor_name' => $donation['donor_name'],
-                    'donor_email' => $donation['donor_email'],
-                    'donor_phone' => $donation['donor_phone'] ?? '',
-                    'donor_message' => $donation['message'] ?? '',
-                ]);
+            $transactionParams = $this->midtrans->buildTransactionParams([
+                'transaction_id' => $donation['transaction_id'],
+                'campaign_id' => $campaign['id'],
+                'campaign_title' => $campaign['title'],
+                'amount' => $donation['amount'],
+                'donor_name' => $donation['donor_name'],
+                'donor_email' => $donation['donor_email'],
+                'donor_phone' => $donation['donor_phone'] ?? '',
+                'donor_message' => $donation['message'] ?? '',
+            ]);
 
-                log_message('debug', 'Transaction params: ' . json_encode($transactionParams));
+            log_message('debug', 'Transaction params: ' . json_encode($transactionParams));
 
-                $snapToken = $this->midtrans->createSnapToken($transactionParams);
+            $snapToken = $this->midtrans->createSnapToken($transactionParams);
 
-                if (empty($snapToken)) {
-                    throw new \Exception('Snap token empty from Midtrans');
-                }
-
-                log_message('info', 'Snap token created: ' . substr($snapToken, 0, 20) . '...');
-
-                // Update donation with snap token
-                $updated = $this->donationModel->update($donationId, ['snap_token' => $snapToken]);
-
-                if (!$updated) {
-                    log_message('error', 'Failed to update snap token for donation ID: ' . $donationId);
-                    throw new \Exception('Failed to save snap token');
-                }
-
-                // Verify snap token was saved
-                $updatedDonation = $this->donationModel->find($donationId);
-                log_message('debug', 'Snap token in DB: ' . ($updatedDonation['snap_token'] ?? 'NULL'));
-
-                // Redirect to payment page with snap token
-                return redirect()->to('/payment/' . $donation['transaction_id']);
-            } catch (\Exception $e) {
-                log_message('error', 'Midtrans Error: ' . $e->getMessage());
-                log_message('error', 'Stack trace: ' . $e->getTraceAsString());
-
-                // Delete failed donation
-                $this->donationModel->delete($donationId);
-
-                return redirect()->back()->withInput()
-                    ->with('error', 'Gagal membuat pembayaran: ' . $e->getMessage() . '. Silakan coba lagi.');
+            if (empty($snapToken)) {
+                throw new \Exception('Snap token empty from Midtrans');
             }
-        }
 
-        // Manual payment - redirect to success page
-        return redirect()->to('/donate/success/' . $donation['transaction_id'])
-            ->with('success', 'Terima kasih atas donasi Anda!');
+            log_message('info', 'Snap token created: ' . substr($snapToken, 0, 20) . '...');
+
+            // Update donation with snap token
+            $updated = $this->donationModel->update($donationId, ['snap_token' => $snapToken]);
+
+            if (!$updated) {
+                log_message('error', 'Failed to update snap token for donation ID: ' . $donationId);
+                throw new \Exception('Failed to save snap token');
+            }
+
+            // Verify snap token was saved
+            $updatedDonation = $this->donationModel->find($donationId);
+            log_message('debug', 'Snap token in DB: ' . ($updatedDonation['snap_token'] ?? 'NULL'));
+
+            // Return JSON response with snap token for AJAX
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON([
+                    'success' => true,
+                    'message' => 'Snap token berhasil dibuat',
+                    'snap_token' => $snapToken,
+                    'transaction_id' => $donation['transaction_id']
+                ]);
+            }
+
+            // Fallback: Redirect to payment page with snap token (for non-AJAX)
+            return redirect()->to('/payment/' . $donation['transaction_id']);
+        } catch (\Exception $e) {
+            log_message('error', 'Midtrans Error: ' . $e->getMessage());
+            log_message('error', 'Stack trace: ' . $e->getTraceAsString());
+
+            // Delete failed donation
+            $this->donationModel->delete($donationId);
+
+            // Return JSON error for AJAX
+            if ($this->request->isAJAX()) {
+                return $this->response->setJSON([
+                    'success' => false,
+                    'message' => 'Gagal membuat pembayaran: ' . $e->getMessage()
+                ])->setStatusCode(400);
+            }
+
+            return redirect()->back()->withInput()
+                ->with('error', 'Gagal membuat pembayaran: ' . $e->getMessage() . '. Silakan coba lagi.');
+        }
     }
 
     public function success($transactionId)

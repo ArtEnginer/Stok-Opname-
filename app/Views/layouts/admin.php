@@ -77,6 +77,17 @@
                     <i class="fas fa-hand-holding-heart w-6"></i>
                     <span :class="!sidebarOpen && 'hidden'" class="ml-3">Donasi</span>
                 </a>
+
+                <div :class="!sidebarOpen && 'hidden'" class="px-6 py-2 mt-4 text-xs font-semibold text-gray-400 uppercase">
+                    Pengaturan
+                </div>
+
+                <a href="/admin/settings-page"
+                    class="flex items-center px-6 py-3 hover:bg-gray-800 transition <?= strpos(uri_string(), 'admin/settings') !== false ? 'bg-gray-800 border-l-4 border-primary-500' : '' ?>">
+                    <i class="fas fa-cog w-6"></i>
+                    <span :class="!sidebarOpen && 'hidden'" class="ml-3">Settings Aplikasi</span>
+                </a>
+
                 <a href="/"
                     target="_blank"
                     class="flex items-center px-6 py-3 hover:bg-gray-800 transition">

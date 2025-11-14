@@ -69,7 +69,7 @@
                 ?>
                     <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition transform hover:-translate-y-1">
                         <div class="relative">
-                            <img src="<?= $campaign['image'] ? base_url('writable/uploads/campaigns/' . $campaign['image']) : 'https://via.placeholder.com/300x200' ?>"
+                            <img src="<?= base_url('uploads/campaigns/' . ($campaign['image'] ?? 'default.jpg')) ?>"
                                 alt="<?= esc($campaign['title']) ?>"
                                 class="w-full h-48 object-cover">
                             <?php if ($campaign['is_urgent']): ?>

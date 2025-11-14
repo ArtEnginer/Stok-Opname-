@@ -1,0 +1,211 @@
+/* Campaign Gallery Styles */
+
+/* Small Gallery (Donation Form) */
+.campaign-gallery-small {
+    position: relative;
+}
+
+.gallery-container-small {
+    position: relative;
+    width: 100%;
+}
+
+.gallery-image-small {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.thumbnail-small {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.thumbnail-small:hover {
+    transform: scale(1.05);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Main Gallery (Campaign Detail) */
+.campaign-gallery-main {
+    position: relative;
+}
+
+.gallery-main-container {
+    position: relative;
+    width: 100%;
+    height: 500px;
+}
+
+.gallery-main-image {
+    transition: opacity 0.4s ease-in-out;
+    object-fit: cover;
+}
+
+.thumbnail-main {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border-width: 3px;
+}
+
+.thumbnail-main-wrapper {
+    position: relative;
+    overflow: hidden;
+}
+
+.thumbnail-main-wrapper:hover .thumbnail-main {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.thumbnail-main-wrapper .absolute {
+    pointer-events: none;
+}
+
+/* Fullscreen Modal */
+#fullscreen-modal {
+    backdrop-filter: blur(10px);
+    transition: opacity 0.3s ease;
+}
+
+#fullscreen-image-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#fullscreen-image-container img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s ease;
+}
+
+/* Navigation Buttons */
+.gallery-nav-btn {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.gallery-nav-btn:hover {
+    transform: scale(1.1);
+}
+
+.gallery-nav-btn:active {
+    transform: scale(0.95);
+}
+
+/* Image Counter Badge */
+.image-counter {
+    backdrop-filter: blur(10px);
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Loading State */
+.gallery-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 10;
+}
+
+.gallery-loading::after {
+    content: '';
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .gallery-main-container {
+        height: 300px;
+    }
+
+    .thumbnail-main {
+        height: 60px;
+    }
+
+    #fullscreen-image-container img {
+        max-width: 95vw;
+        max-height: 80vh;
+    }
+
+    .gallery-nav-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 640px) {
+    .gallery-main-container {
+        height: 250px;
+    }
+
+    .thumbnail-main-wrapper {
+        min-width: 80px;
+    }
+}
+
+/* Touch Device Optimizations */
+@media (hover: none) and (pointer: coarse) {
+
+    .thumbnail-small:hover,
+    .thumbnail-main-wrapper:hover .thumbnail-main {
+        transform: none;
+    }
+
+    .thumbnail-small:active,
+    .thumbnail-main:active {
+        transform: scale(0.95);
+    }
+}
+
+/* Accessibility */
+.gallery-nav-btn:focus,
+.thumbnail-small:focus,
+.thumbnail-main:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Print Styles */
+@media print {
+    #fullscreen-modal {
+        display: none !important;
+    }
+
+    .gallery-nav-btn {
+        display: none !important;
+    }
+}

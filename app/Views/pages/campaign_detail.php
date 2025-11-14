@@ -8,11 +8,71 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Left Column - Campaign Details -->
             <div class="lg:col-span-2">
-                <!-- Campaign Image -->
+                <!-- Campaign Image Gallery -->
                 <div class="mb-6">
-                    <img src="<?= $campaign['image'] ? base_url('writable/uploads/campaigns/' . $campaign['image']) : 'https://via.placeholder.com/800x450' ?>"
-                        alt="<?= esc($campaign['title']) ?>"
-                        class="w-full rounded-xl shadow-lg">
+                    <?php
+                    $additionalImages = !empty($campaign['images']) ? json_decode($campaign['images'], true) : [];
+                    $allImages = array_merge([$campaign['image'] ?? 'default.jpg'], $additionalImages);
+                    ?>
+
+                    <?php if (count($allImages) > 1): ?>
+                        <!-- Main Image Display -->
+                        <div class="relative campaign-gallery-main">
+                            <div class="gallery-main-container rounded-xl overflow-hidden shadow-lg">
+                                <?php foreach ($allImages as $index => $image): ?>
+                                    <img src="<?= base_url('uploads/campaigns/' . $image) ?>"
+                                        alt="<?= esc($campaign['title']) ?>"
+                                        class="gallery-main-image w-full h-[500px] object-cover <?= $index === 0 ? '' : 'hidden' ?>"
+                                        data-main-index="<?= $index ?>">
+                                <?php endforeach; ?>
+                            </div>
+
+                            <!-- Navigation Overlays -->
+                            <button type="button" onclick="changeMainImage(-1)"
+                                class="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-12 h-12 rounded-full flex items-center justify-center transition group">
+                                <i class="fas fa-chevron-left group-hover:scale-110 transition"></i>
+                            </button>
+                            <button type="button" onclick="changeMainImage(1)"
+                                class="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-12 h-12 rounded-full flex items-center justify-center transition group">
+                                <i class="fas fa-chevron-right group-hover:scale-110 transition"></i>
+                            </button>
+
+                            <!-- Image Counter -->
+                            <div class="absolute top-4 right-4 bg-black/70 text-white px-3 py-2 rounded-lg">
+                                <i class="fas fa-images mr-2"></i>
+                                <span class="current-main-image">1</span> / <?= count($allImages) ?>
+                            </div>
+
+                            <!-- Fullscreen Button -->
+                            <button type="button" onclick="openFullscreen()"
+                                class="absolute top-4 left-4 bg-black/70 hover:bg-black/80 text-white px-3 py-2 rounded-lg transition">
+                                <i class="fas fa-expand mr-2"></i>Lihat Penuh
+                            </button>
+                        </div>
+
+                        <!-- Thumbnail Gallery -->
+                        <div class="mt-4 grid grid-cols-5 gap-3">
+                            <?php foreach ($allImages as $index => $image): ?>
+                                <div class="thumbnail-main-wrapper relative cursor-pointer group" onclick="goToMainImage(<?= $index ?>)">
+                                    <img src="<?= base_url('uploads/campaigns/' . $image) ?>"
+                                        alt="Thumbnail <?= $index + 1 ?>"
+                                        class="thumbnail-main w-full h-24 object-cover rounded-lg border-3 <?= $index === 0 ? 'border-primary-600 ring-2 ring-primary-300' : 'border-gray-300' ?> hover:border-primary-400 transition"
+                                        data-main-thumb="<?= $index ?>">
+                                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition rounded-lg"></div>
+                                    <?php if ($index === 0): ?>
+                                        <div class="absolute top-1 right-1 bg-primary-600 text-white text-xs px-2 py-0.5 rounded">
+                                            Utama
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <!-- Single Image -->
+                        <img src="<?= base_url('uploads/campaigns/' . ($campaign['image'] ?? 'default.jpg')) ?>"
+                            alt="<?= esc($campaign['title']) ?>"
+                            class="w-full h-[500px] object-cover rounded-xl shadow-lg">
+                    <?php endif; ?>
                 </div>
 
                 <!-- Campaign Title and Info -->
@@ -198,7 +258,7 @@
                             min(($related['collected_amount'] / $related['target_amount']) * 100, 100) : 0;
                     ?>
                         <div class="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition">
-                            <img src="<?= $related['image'] ? base_url('writable/uploads/campaigns/' . $related['image']) : 'https://via.placeholder.com/300x200' ?>"
+                            <img src="<?= base_url('uploads/campaigns/' . ($related['image'] ?? 'default.jpg')) ?>"
                                 alt="<?= esc($related['title']) ?>"
                                 class="w-full h-40 object-cover">
                             <div class="p-4">
@@ -221,5 +281,64 @@
         <?php endif; ?>
     </div>
 </section>
+
+<!-- Fullscreen Modal -->
+<div id="fullscreen-modal" class="fixed inset-0 bg-black/95 z-50 hidden flex items-center justify-center">
+    <button onclick="closeFullscreen()" class="absolute top-4 right-4 text-white hover:text-gray-300 text-3xl z-10">
+        <i class="fas fa-times"></i>
+    </button>
+
+    <div class="relative w-full h-full flex items-center justify-center p-8">
+        <button onclick="changeFullscreenImage(-1)"
+            class="absolute left-8 text-white hover:text-gray-300 text-4xl z-10">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+
+        <div id="fullscreen-image-container" class="max-w-full max-h-full">
+            <!-- Images will be inserted here -->
+        </div>
+
+        <button onclick="changeFullscreenImage(1)"
+            class="absolute right-8 text-white hover:text-gray-300 text-4xl z-10">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+
+        <div class="absolute bottom-8 left-1/2 -translate-x-1/2 text-white text-lg">
+            <span id="fullscreen-counter"></span>
+        </div>
+    </div>
+</div>
+
+<style>
+    .campaign-gallery-main {
+        position: relative;
+    }
+
+    .gallery-main-image {
+        transition: opacity 0.4s ease;
+    }
+
+    .thumbnail-main {
+        transition: all 0.3s ease;
+    }
+
+    .thumbnail-main-wrapper:hover .thumbnail-main {
+        transform: scale(1.05);
+    }
+
+    #fullscreen-modal {
+        backdrop-filter: blur(10px);
+    }
+
+    #fullscreen-image-container img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+</style>
+
+<script src="<?= base_url('js/campaign-gallery.js') ?>?v=<?= time() ?>"></script>
 
 <?= $this->endSection() ?>

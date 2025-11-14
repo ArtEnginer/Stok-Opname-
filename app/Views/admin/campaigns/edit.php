@@ -152,7 +152,7 @@
             <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div class="flex items-center text-sm text-blue-800">
                     <i class="fas fa-info-circle mr-2"></i>
-                    <span>Progress saat ini: <strong>Rp <?= number_format($campaign['current_amount'], 0, ',', '.') ?></strong> dari target <strong>Rp <?= number_format($campaign['target_amount'], 0, ',', '.') ?></strong> (<?= round(($campaign['current_amount'] / $campaign['target_amount']) * 100, 1) ?>%)</span>
+                    <span>Progress saat ini: <strong>Rp <?= number_format($campaign['collected_amount'], 0, ',', '.') ?></strong> dari target <strong>Rp <?= number_format($campaign['target_amount'], 0, ',', '.') ?></strong> (<?= $campaign['target_amount'] > 0 ? round(($campaign['collected_amount'] / $campaign['target_amount']) * 100, 1) : 0 ?>%)</span>
                 </div>
             </div>
         </div>
@@ -201,29 +201,96 @@
         <div class="bg-white rounded-lg shadow-sm p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Gambar Campaign</h2>
 
-            <div x-data="{ imagePreview: null }">
-                <!-- Current Image -->
-                <?php if (!empty($campaign['image'])): ?>
-                    <div class="mb-4">
-                        <p class="text-sm font-medium text-gray-700 mb-2">Gambar Saat Ini:</p>
-                        <img src="<?= base_url('writable/uploads/campaigns/' . $campaign['image']) ?>"
-                            alt="<?= esc($campaign['title']) ?>"
-                            class="max-w-md rounded-lg border border-gray-300">
+            <div x-data="imageManager()" x-init="init()">
+                <!-- Main Image -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Gambar Utama</label>
+
+                    <?php if (!empty($campaign['image'])): ?>
+                        <div class="mb-4">
+                            <p class="text-sm text-gray-600 mb-2">Gambar Utama Saat Ini:</p>
+                            <img src="<?= base_url('uploads/campaigns/' . $campaign['image']) ?>"
+                                alt="<?= esc($campaign['title']) ?>"
+                                class="max-w-md rounded-lg border border-gray-300">
+                        </div>
+                    <?php endif; ?>
+
+                    <label for="image" class="block text-sm font-medium text-gray-700 mb-2">
+                        <?= !empty($campaign['image']) ? 'Ganti Gambar Utama' : 'Upload Gambar Utama' ?>
+                    </label>
+                    <input type="file" id="image" name="image" accept="image/*"
+                        @change="mainImagePreview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <p class="mt-1 text-xs text-gray-500">Format: JPG, PNG, JPEG. Maksimal 2MB. Rekomendasi: 1200x600px. Kosongkan jika tidak ingin mengganti.</p>
+
+                    <!-- New Main Image Preview -->
+                    <div x-show="mainImagePreview" class="mt-4" style="display: none;">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Preview Gambar Utama Baru:</p>
+                        <img :src="mainImagePreview" alt="Preview" class="max-w-md rounded-lg border border-gray-300">
                     </div>
-                <?php endif; ?>
+                </div>
 
-                <label for="image" class="block text-sm font-medium text-gray-700 mb-2">
-                    <?= !empty($campaign['image']) ? 'Ganti Gambar' : 'Upload Gambar' ?>
-                </label>
-                <input type="file" id="image" name="image" accept="image/*"
-                    @change="imagePreview = URL.createObjectURL($event.target.files[0])"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                <p class="mt-1 text-xs text-gray-500">Format: JPG, PNG, JPEG. Maksimal 2MB. Rekomendasi: 1200x600px. Kosongkan jika tidak ingin mengganti gambar.</p>
+                <!-- Additional Images -->
+                <div class="pt-6 border-t border-gray-200">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Gambar Tambahan</label>
 
-                <!-- New Image Preview -->
-                <div x-show="imagePreview" class="mt-4">
-                    <p class="text-sm font-medium text-gray-700 mb-2">Preview Gambar Baru:</p>
-                    <img :src="imagePreview" alt="Preview" class="max-w-md rounded-lg border border-gray-300">
+                    <!-- Existing Additional Images -->
+                    <?php
+                    $existingImages = !empty($campaign['images']) ? json_decode($campaign['images'], true) : [];
+                    if (!empty($existingImages) && is_array($existingImages)):
+                    ?>
+                        <div class="mb-4">
+                            <p class="text-sm text-gray-600 mb-2">Gambar Tambahan Saat Ini:</p>
+                            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                <?php foreach ($existingImages as $index => $img): ?>
+                                    <div class="relative group" x-show="!deletedImages.includes('<?= esc($img) ?>')">
+                                        <img src="<?= base_url('uploads/campaigns/' . $img) ?>"
+                                            alt="Additional Image <?= $index + 1 ?>"
+                                            class="w-full h-32 object-cover rounded-lg border border-gray-300">
+                                        <button type="button"
+                                            @click="deletedImages.push('<?= esc($img) ?>')"
+                                            class="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <i class="fas fa-trash text-xs"></i>
+                                        </button>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <!-- Hidden input for deleted images -->
+                            <template x-for="img in deletedImages" :key="img">
+                                <input type="hidden" name="deleted_images[]" :value="img">
+                            </template>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Upload New Additional Images -->
+                    <label for="additional_images" class="block text-sm font-medium text-gray-700 mb-2">
+                        Tambah Gambar Baru
+                    </label>
+                    <input type="file" id="additional_images" name="additional_images[]" multiple accept="image/*"
+                        @change="
+                            additionalPreviews = [];
+                            Array.from($event.target.files).forEach(file => {
+                                additionalPreviews.push(URL.createObjectURL(file));
+                            });
+                        "
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <p class="mt-1 text-xs text-gray-500">Anda bisa upload hingga 5 gambar tambahan. Format: JPG, PNG, JPEG. Maksimal 2MB per file.</p>
+
+                    <!-- New Additional Images Preview -->
+                    <div x-show="additionalPreviews.length > 0" class="mt-4" style="display: none;">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Preview Gambar Tambahan Baru:</p>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <template x-for="(preview, index) in additionalPreviews" :key="index">
+                                <div class="relative">
+                                    <img :src="preview" :alt="'Preview ' + (index + 1)"
+                                        class="w-full h-32 object-cover rounded-lg border border-gray-300">
+                                    <div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                        <span x-text="index + 1"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -272,7 +339,7 @@
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-xs text-gray-500 mb-1">Views</p>
-                    <p class="text-sm font-semibold"><?= number_format($campaign['view_count'], 0, ',', '.') ?></p>
+                    <p class="text-sm font-semibold"><?= number_format($campaign['views'], 0, ',', '.') ?></p>
                 </div>
                 <div class="bg-gray-50 p-4 rounded-lg">
                     <p class="text-xs text-gray-500 mb-1">Donatur</p>
@@ -296,6 +363,21 @@
 </div>
 
 <script>
+    // Alpine.js Component for Image Manager
+    function imageManager() {
+        return {
+            mainImagePreview: null,
+            additionalPreviews: [],
+            existingImages: <?= json_encode(!empty($campaign['images']) ? json_decode($campaign['images'], true) : []) ?>,
+            deletedImages: [],
+
+            init() {
+                // Component initialized
+                console.log('Image manager initialized', this.existingImages);
+            }
+        }
+    }
+
     // Validate dates
     document.getElementById('end_date').addEventListener('change', function() {
         const startDate = document.getElementById('start_date').value;

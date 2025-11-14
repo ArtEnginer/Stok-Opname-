@@ -193,19 +193,57 @@
         <div class="bg-white rounded-lg shadow-sm p-6">
             <h2 class="text-lg font-semibold text-gray-900 mb-4">Gambar Campaign</h2>
 
-            <div x-data="{ imagePreview: null }">
-                <label for="image" class="block text-sm font-medium text-gray-700 mb-2">
-                    Gambar <span class="text-red-500">*</span>
-                </label>
-                <input type="file" id="image" name="image" required accept="image/*"
-                    @change="imagePreview = URL.createObjectURL($event.target.files[0])"
-                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
-                <p class="mt-1 text-xs text-gray-500">Format: JPG, PNG, JPEG. Maksimal 2MB. Rekomendasi: 1200x600px</p>
+            <div x-data="{ 
+                mainImagePreview: null,
+                additionalPreviews: []
+            }">
+                <!-- Main Image -->
+                <div class="mb-6">
+                    <label for="image" class="block text-sm font-medium text-gray-700 mb-2">
+                        Gambar Utama <span class="text-red-500">*</span>
+                    </label>
+                    <input type="file" id="image" name="image" required accept="image/*"
+                        @change="mainImagePreview = URL.createObjectURL($event.target.files[0])"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <p class="mt-1 text-xs text-gray-500">Format: JPG, PNG, JPEG. Maksimal 2MB. Rekomendasi: 1200x600px</p>
 
-                <!-- Image Preview -->
-                <div x-show="imagePreview" class="mt-4">
-                    <p class="text-sm font-medium text-gray-700 mb-2">Preview:</p>
-                    <img :src="imagePreview" alt="Preview" class="max-w-md rounded-lg border border-gray-300">
+                    <!-- Main Image Preview -->
+                    <div x-show="mainImagePreview" class="mt-4">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Preview Gambar Utama:</p>
+                        <img :src="mainImagePreview" alt="Preview" class="max-w-md rounded-lg border border-gray-300">
+                    </div>
+                </div>
+
+                <!-- Additional Images -->
+                <div class="pt-6 border-t border-gray-200">
+                    <label for="additional_images" class="block text-sm font-medium text-gray-700 mb-2">
+                        Gambar Tambahan (Opsional)
+                    </label>
+                    <input type="file" id="additional_images" name="additional_images[]" multiple accept="image/*"
+                        @change="
+                            additionalPreviews = [];
+                            Array.from($event.target.files).forEach(file => {
+                                additionalPreviews.push(URL.createObjectURL(file));
+                            });
+                        "
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <p class="mt-1 text-xs text-gray-500">Anda bisa upload hingga 5 gambar tambahan. Format: JPG, PNG, JPEG. Maksimal 2MB per file.</p>
+
+                    <!-- Additional Images Preview -->
+                    <div x-show="additionalPreviews.length > 0" class="mt-4">
+                        <p class="text-sm font-medium text-gray-700 mb-2">Preview Gambar Tambahan:</p>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <template x-for="(preview, index) in additionalPreviews" :key="index">
+                                <div class="relative">
+                                    <img :src="preview" :alt="'Preview ' + (index + 1)"
+                                        class="w-full h-32 object-cover rounded-lg border border-gray-300">
+                                    <div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                        <span x-text="index + 1"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

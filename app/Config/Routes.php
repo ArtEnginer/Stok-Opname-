@@ -3,9 +3,13 @@
 use App\Controllers\Home;
 use App\Controllers\CampaignController;
 use App\Controllers\DonationController;
+use App\Controllers\FileController;
 use App\Controllers\Admin\AdminController;
 use App\Controllers\Admin\CampaignManageController;
 use App\Controllers\Admin\DonationManageController;
+use App\Controllers\Admin\SettingsController;
+use App\Controllers\Admin\MidtransConfigController;
+use App\Controllers\Api\SettingsApiController;
 use App\Controllers\Migrate;
 use CodeIgniter\Router\RouteCollection;
 
@@ -15,6 +19,14 @@ use CodeIgniter\Router\RouteCollection;
 
 // Frontend Routes
 $routes->get('/', [Home::class, 'index']);
+
+// File Serving Routes (untuk akses file di writable/uploads)
+$routes->get('uploads/(:segment)/(:segment)', [FileController::class, 'serve/$1/$2']);
+$routes->get('files/campaigns/(:segment)', [FileController::class, 'campaigns/$1']);
+$routes->get('files/receipts/(:segment)', [FileController::class, 'receipts/$1']);
+$routes->get('files/updates/(:segment)', [FileController::class, 'updates/$1']);
+$routes->get('files/download/(:segment)/(:segment)', [FileController::class, 'download/$1/$2']);
+
 $routes->get('campaign', [CampaignController::class, 'index']);
 $routes->get('campaign/(:segment)', [CampaignController::class, 'detail/$1']);
 $routes->post('campaign/(:segment)/comment', [CampaignController::class, 'postComment/$1']);
@@ -46,12 +58,21 @@ $routes->get('contact', [Home::class, 'contact']);
 $routes->environment('development', static function ($routes) {
     $routes->get('migrate', [Migrate::class, 'index']);
     $routes->get('migrate/(:any)', [Migrate::class, 'execute']);
+    // Test upload access
+    $routes->get('test-upload', static function () {
+        return view('test_upload');
+    });
 });
 
 // Admin Panel Routes
 $routes->group('admin', static function (RouteCollection $routes) {
     $routes->get('', [AdminController::class, 'dashboard']);
     $routes->get('dashboard', [AdminController::class, 'dashboard']);
+
+    // Settings Page View
+    $routes->get('settings-page', static function () {
+        return view('admin/settings');
+    });
 
     // Campaign Management
     $routes->get('campaigns', [CampaignManageController::class, 'index']);
@@ -67,6 +88,32 @@ $routes->group('admin', static function (RouteCollection $routes) {
     $routes->post('donations/verify/(:segment)', [DonationManageController::class, 'verify/$1']);
     $routes->post('donations/reject/(:segment)', [DonationManageController::class, 'reject/$1']);
     $routes->get('donations/export', [DonationManageController::class, 'export']);
+
+    // Settings Management
+    $routes->get('settings', [SettingsController::class, 'index']);
+    $routes->get('settings/grouped', [SettingsController::class, 'getGrouped']);
+    $routes->get('settings/(:segment)', [SettingsController::class, 'show/$1']);
+    $routes->post('settings', [SettingsController::class, 'create']);
+    $routes->put('settings/(:segment)', [SettingsController::class, 'update/$1']);
+    $routes->put('settings/batch', [SettingsController::class, 'updateBatch']);
+    $routes->delete('settings/(:segment)', [SettingsController::class, 'delete/$1']);
+    $routes->post('settings/(:segment)/upload', [SettingsController::class, 'uploadFile/$1']);
+    $routes->get('settings/payment/midtrans', [SettingsController::class, 'getMidtransSettings']);
+    $routes->put('settings/payment/midtrans', [SettingsController::class, 'updateMidtransSettings']);
+
+    // Midtrans Configuration
+    $routes->post('midtrans/test-connection', [MidtransConfigController::class, 'testConnection']);
+    $routes->get('midtrans/dashboard-info', [MidtransConfigController::class, 'getDashboardInfo']);
+    $routes->post('midtrans/validate', [MidtransConfigController::class, 'validateCredentials']);
+    $routes->get('midtrans/payment-methods', [MidtransConfigController::class, 'getPaymentMethods']);
+});
+
+// API Routes
+$routes->group('api', static function (RouteCollection $routes) {
+    // Public Settings API
+    $routes->get('settings/public', [SettingsApiController::class, 'getPublicSettings']);
+    $routes->get('settings/app-info', [SettingsApiController::class, 'getAppInfo']);
+    $routes->get('settings/midtrans-config', [SettingsApiController::class, 'getMidtransConfig']);
 });
 
 service('auth')->routes($routes);

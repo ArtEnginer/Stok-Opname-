@@ -70,13 +70,30 @@ class CampaignManageController extends BaseController
             return redirect()->back()->withInput()->with('errors', $validation->getErrors());
         }
 
-        // Upload image
+        // Upload main image
         $image = $this->request->getFile('image');
         $imageName = null;
 
         if ($image && $image->isValid() && !$image->hasMoved()) {
-            $imageName = $image->getRandomName();
+            $imageName = time() . '_' . $image->getRandomName();
             $image->move(WRITEPATH . 'uploads/campaigns', $imageName);
+        }
+
+        // Upload additional images
+        $additionalImages = [];
+        $additionalFiles = $this->request->getFileMultiple('additional_images');
+
+        if ($additionalFiles) {
+            foreach ($additionalFiles as $file) {
+                if ($file && $file->isValid() && !$file->hasMoved()) {
+                    // Validate file
+                    if ($file->getSize() <= 2048000 && in_array($file->getMimeType(), ['image/jpeg', 'image/jpg', 'image/png'])) {
+                        $fileName = time() . '_' . $file->getRandomName();
+                        $file->move(WRITEPATH . 'uploads/campaigns', $fileName);
+                        $additionalImages[] = $fileName;
+                    }
+                }
+            }
         }
 
         $slug = url_title($this->request->getPost('title'), '-', true) . '-' . time();
@@ -94,6 +111,7 @@ class CampaignManageController extends BaseController
             'organizer_phone' => $this->request->getPost('organizer_phone'),
             'organizer_email' => $this->request->getPost('organizer_email'),
             'image' => $imageName,
+            'images' => !empty($additionalImages) ? json_encode($additionalImages) : null,
             'status' => $this->request->getPost('status') ?? 'draft',
             'is_featured' => $this->request->getPost('is_featured') ? 1 : 0,
             'is_urgent' => $this->request->getPost('is_urgent') ? 1 : 0,
@@ -166,7 +184,7 @@ class CampaignManageController extends BaseController
             'is_urgent' => $this->request->getPost('is_urgent') ? 1 : 0,
         ];
 
-        // Upload image if provided
+        // Upload main image if provided
         $image = $this->request->getFile('image');
         if ($image && $image->isValid() && !$image->hasMoved()) {
             // Delete old image
@@ -174,10 +192,44 @@ class CampaignManageController extends BaseController
                 unlink(WRITEPATH . 'uploads/campaigns/' . $campaign['image']);
             }
 
-            $imageName = $image->getRandomName();
+            $imageName = time() . '_' . $image->getRandomName();
             $image->move(WRITEPATH . 'uploads/campaigns', $imageName);
             $campaignData['image'] = $imageName;
         }
+
+        // Handle additional images
+        $existingImages = !empty($campaign['images']) ? json_decode($campaign['images'], true) : [];
+
+        // Handle deleted images
+        $deletedImages = $this->request->getPost('deleted_images');
+        if ($deletedImages) {
+            foreach ($deletedImages as $deletedImg) {
+                // Remove from array
+                $existingImages = array_diff($existingImages, [$deletedImg]);
+                // Delete physical file
+                if (file_exists(WRITEPATH . 'uploads/campaigns/' . $deletedImg)) {
+                    unlink(WRITEPATH . 'uploads/campaigns/' . $deletedImg);
+                }
+            }
+        }
+
+        // Upload new additional images
+        $additionalFiles = $this->request->getFileMultiple('additional_images');
+        if ($additionalFiles) {
+            foreach ($additionalFiles as $file) {
+                if ($file && $file->isValid() && !$file->hasMoved()) {
+                    // Validate file
+                    if ($file->getSize() <= 2048000 && in_array($file->getMimeType(), ['image/jpeg', 'image/jpg', 'image/png'])) {
+                        $fileName = time() . '_' . $file->getRandomName();
+                        $file->move(WRITEPATH . 'uploads/campaigns', $fileName);
+                        $existingImages[] = $fileName;
+                    }
+                }
+            }
+        }
+
+        // Update images field
+        $campaignData['images'] = !empty($existingImages) ? json_encode(array_values($existingImages)) : null;
 
         if ($this->campaignModel->update($id, $campaignData)) {
             return redirect()->to('/admin/campaigns')->with('success', 'Campaign berhasil diupdate');
@@ -194,9 +246,21 @@ class CampaignManageController extends BaseController
             return redirect()->back()->with('error', 'Campaign tidak ditemukan');
         }
 
-        // Delete image
+        // Delete main image
         if ($campaign['image'] && file_exists(WRITEPATH . 'uploads/campaigns/' . $campaign['image'])) {
             unlink(WRITEPATH . 'uploads/campaigns/' . $campaign['image']);
+        }
+
+        // Delete additional images
+        if (!empty($campaign['images'])) {
+            $additionalImages = json_decode($campaign['images'], true);
+            if (is_array($additionalImages)) {
+                foreach ($additionalImages as $img) {
+                    if (file_exists(WRITEPATH . 'uploads/campaigns/' . $img)) {
+                        unlink(WRITEPATH . 'uploads/campaigns/' . $img);
+                    }
+                }
+            }
         }
 
         if ($this->campaignModel->delete($id)) {

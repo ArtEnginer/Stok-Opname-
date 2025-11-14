@@ -8,13 +8,70 @@
             <!-- Campaign Info Card -->
             <div class="bg-white rounded-xl shadow-lg p-8 mb-6">
                 <div class="flex items-start gap-6">
-                    <img src="<?= $campaign['image'] ? base_url('writable/uploads/campaigns/' . $campaign['image']) : 'https://via.placeholder.com/200x150' ?>"
-                        alt="<?= esc($campaign['title']) ?>"
-                        class="w-48 h-32 object-cover rounded-lg">
+                    <!-- Campaign Image Gallery -->
+                    <div class="w-48 flex-shrink-0">
+                        <?php
+                        $additionalImages = !empty($campaign['images']) ? json_decode($campaign['images'], true) : [];
+                        $allImages = array_merge([$campaign['image'] ?? 'default.jpg'], $additionalImages);
+                        ?>
+
+                        <?php if (count($allImages) > 1): ?>
+                            <!-- Image Slider -->
+                            <div class="relative campaign-gallery-small">
+                                <div class="gallery-container-small overflow-hidden rounded-lg">
+                                    <?php foreach ($allImages as $index => $image): ?>
+                                        <img src="<?= base_url('uploads/campaigns/' . $image) ?>"
+                                            alt="<?= esc($campaign['title']) ?>"
+                                            class="gallery-image-small w-48 h-32 object-cover rounded-lg <?= $index === 0 ? '' : 'hidden' ?>"
+                                            data-index="<?= $index ?>">
+                                    <?php endforeach; ?>
+                                </div>
+
+                                <!-- Navigation Arrows -->
+                                <?php if (count($allImages) > 1): ?>
+                                    <button type="button" onclick="changeImageSmall(-1)"
+                                        class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center transition">
+                                        <i class="fas fa-chevron-left text-sm"></i>
+                                    </button>
+                                    <button type="button" onclick="changeImageSmall(1)"
+                                        class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-8 h-8 rounded-full flex items-center justify-center transition">
+                                        <i class="fas fa-chevron-right text-sm"></i>
+                                    </button>
+
+                                    <!-- Image Counter -->
+                                    <div class="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                        <span class="current-image-small">1</span> / <?= count($allImages) ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+
+                            <!-- Thumbnail Navigation -->
+                            <?php if (count($allImages) > 1): ?>
+                                <div class="flex gap-2 mt-2 overflow-x-auto pb-2">
+                                    <?php foreach ($allImages as $index => $image): ?>
+                                        <img src="<?= base_url('uploads/campaigns/' . $image) ?>"
+                                            alt="Thumbnail <?= $index + 1 ?>"
+                                            class="thumbnail-small w-12 h-12 object-cover rounded cursor-pointer border-2 <?= $index === 0 ? 'border-primary-600' : 'border-gray-300' ?> hover:border-primary-400 transition flex-shrink-0"
+                                            onclick="goToImageSmall(<?= $index ?>)"
+                                            data-thumb-index="<?= $index ?>">
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        <?php else: ?>
+                            <!-- Single Image -->
+                            <img src="<?= base_url('uploads/campaigns/' . ($campaign['image'] ?? 'default.jpg')) ?>"
+                                alt="<?= esc($campaign['title']) ?>"
+                                class="w-48 h-32 object-cover rounded-lg">
+                        <?php endif; ?>
+                    </div>
+
                     <div class="flex-1">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-2">
-                            <?= esc($campaign['title']) ?>
-                        </h2>
+                        <a href="/campaign/<?= esc($campaign['slug']) ?>" class="block group">
+                            <h2 class="text-2xl font-bold text-gray-800 mb-2 group-hover:text-primary-600 transition cursor-pointer">
+                                <?= esc($campaign['title']) ?>
+                                <i class="fas fa-external-link-alt text-sm ml-1 opacity-0 group-hover:opacity-100 transition"></i>
+                            </h2>
+                        </a>
                         <p class="text-gray-600 mb-3">
                             <?= esc($campaign['short_description']) ?>
                         </p>
@@ -65,7 +122,7 @@
                     </div>
                 <?php endif; ?>
 
-                <form action="/donate/process" method="POST" enctype="multipart/form-data" class="space-y-6">
+                <form id="donationForm" action="/donate/process" method="POST" enctype="multipart/form-data" class="space-y-6">
                     <?= csrf_field() ?>
                     <input type="hidden" name="campaign_id" value="<?= $campaign['id'] ?>">
 
@@ -163,83 +220,76 @@
                     <!-- Payment Method -->
                     <div>
                         <label class="block text-gray-700 font-semibold mb-3">
-                            Metode Pembayaran <span class="text-red-500">*</span>
+                            Metode Pembayaran
                         </label>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Midtrans Option -->
-                            <label class="payment-method-card border-2 border-gray-300 rounded-lg cursor-pointer hover:border-primary-600 transition">
-                                <input type="radio" name="payment_method" value="midtrans" required class="hidden" onchange="togglePaymentProof()">
-                                <div class="p-6">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-gradient-to-r from-primary-500 to-primary-700 rounded-lg flex items-center justify-center mr-3">
-                                                <i class="fas fa-credit-card text-white"></i>
-                                            </div>
-                                            <div>
-                                                <h3 class="font-bold text-gray-800">Midtrans Payment</h3>
-                                                <p class="text-xs text-gray-500">Pembayaran Otomatis</p>
-                                            </div>
-                                        </div>
-                                        <div class="radio-circle"></div>
-                                    </div>
-                                    <div class="flex flex-wrap gap-2 mt-3">
-                                        <span class="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded">Kartu Kredit</span>
-                                        <span class="text-xs px-2 py-1 bg-green-50 text-green-700 rounded">GoPay</span>
-                                        <span class="text-xs px-2 py-1 bg-orange-50 text-orange-700 rounded">ShopeePay</span>
-                                        <span class="text-xs px-2 py-1 bg-purple-50 text-purple-700 rounded">QRIS</span>
-                                        <span class="text-xs px-2 py-1 bg-gray-50 text-gray-700 rounded">Virtual Account</span>
-                                    </div>
-                                    <p class="text-xs text-gray-500 mt-3">
-                                        <i class="fas fa-check-circle text-green-500 mr-1"></i>
-                                        Proses otomatis, donasi langsung masuk
-                                    </p>
-                                </div>
-                            </label>
+                        <!-- Hidden input for payment method -->
+                        <input type="hidden" name="payment_method" value="midtrans">
 
-                            <!-- Manual Transfer Option -->
-                            <label class="payment-method-card border-2 border-gray-300 rounded-lg cursor-pointer hover:border-primary-600 transition">
-                                <input type="radio" name="payment_method" value="manual" required class="hidden" onchange="togglePaymentProof()">
-                                <div class="p-6">
-                                    <div class="flex items-center justify-between mb-3">
-                                        <div class="flex items-center">
-                                            <div class="w-10 h-10 bg-gradient-to-r from-gray-500 to-gray-700 rounded-lg flex items-center justify-center mr-3">
-                                                <i class="fas fa-university text-white"></i>
-                                            </div>
-                                            <div>
-                                                <h3 class="font-bold text-gray-800">Transfer Manual</h3>
-                                                <p class="text-xs text-gray-500">Upload Bukti Transfer</p>
-                                            </div>
-                                        </div>
-                                        <div class="radio-circle"></div>
+                        <!-- Midtrans Payment Card -->
+                        <div class="payment-method-card border-3 border-primary-600 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+                            <div class="p-6">
+                                <div class="flex items-center mb-4">
+                                    <div class="w-14 h-14 bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl flex items-center justify-center mr-4 shadow-lg">
+                                        <i class="fas fa-credit-card text-white text-2xl"></i>
                                     </div>
-                                    <div class="text-xs text-gray-600 space-y-1 mt-3">
-                                        <p><strong>BCA:</strong> 1234567890</p>
-                                        <p><strong>Mandiri:</strong> 9876543210</p>
-                                        <p class="text-gray-500">a.n. DonasiKita</p>
+                                    <div>
+                                        <h3 class="font-bold text-gray-800 text-lg">Midtrans Payment Gateway</h3>
+                                        <p class="text-sm text-gray-600">Pembayaran Aman & Otomatis</p>
                                     </div>
-                                    <p class="text-xs text-gray-500 mt-3">
-                                        <i class="fas fa-clock text-orange-500 mr-1"></i>
-                                        Verifikasi manual dalam 1x24 jam
-                                    </p>
                                 </div>
-                            </label>
+
+                                <div class="bg-white/70 rounded-lg p-4 mb-4">
+                                    <p class="text-sm font-semibold text-gray-700 mb-3">Metode Pembayaran yang Tersedia:</p>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                        <div class="flex items-center text-xs px-3 py-2 bg-blue-50 text-blue-700 rounded-lg border border-blue-200">
+                                            <i class="fas fa-credit-card mr-2"></i>
+                                            <span>Kartu Kredit</span>
+                                        </div>
+                                        <div class="flex items-center text-xs px-3 py-2 bg-green-50 text-green-700 rounded-lg border border-green-200">
+                                            <i class="fab fa-google-pay mr-2"></i>
+                                            <span>GoPay</span>
+                                        </div>
+                                        <div class="flex items-center text-xs px-3 py-2 bg-orange-50 text-orange-700 rounded-lg border border-orange-200">
+                                            <i class="fas fa-shopping-bag mr-2"></i>
+                                            <span>ShopeePay</span>
+                                        </div>
+                                        <div class="flex items-center text-xs px-3 py-2 bg-purple-50 text-purple-700 rounded-lg border border-purple-200">
+                                            <i class="fas fa-qrcode mr-2"></i>
+                                            <span>QRIS</span>
+                                        </div>
+                                        <div class="flex items-center text-xs px-3 py-2 bg-gray-50 text-gray-700 rounded-lg border border-gray-200">
+                                            <i class="fas fa-university mr-2"></i>
+                                            <span>Virtual Account</span>
+                                        </div>
+                                        <div class="flex items-center text-xs px-3 py-2 bg-red-50 text-red-700 rounded-lg border border-red-200">
+                                            <i class="fas fa-store mr-2"></i>
+                                            <span>Indomaret</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <div class="flex items-start">
+                                        <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
+                                        <p class="text-sm text-gray-700">
+                                            <strong>Proses Otomatis:</strong> Donasi langsung masuk setelah pembayaran berhasil
+                                        </p>
+                                    </div>
+                                    <div class="flex items-start">
+                                        <i class="fas fa-shield-alt text-blue-500 mr-2 mt-1"></i>
+                                        <p class="text-sm text-gray-700">
+                                            <strong>Aman & Terpercaya:</strong> Dienkripsi dengan standar keamanan internasional
+                                        </p>
+                                    </div>
+                                    <div class="flex items-start">
+                                        <i class="fas fa-bolt text-yellow-500 mr-2 mt-1"></i>
+                                        <p class="text-sm text-gray-700">
+                                            <strong>Verifikasi Instan:</strong> Notifikasi real-time via email
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-
-                    <!-- Payment Proof (for manual only) -->
-                    <div id="payment-proof-section" class="hidden">
-                        <label for="payment_proof" class="block text-gray-700 font-semibold mb-2">
-                            Bukti Pembayaran <span class="text-red-500">*</span>
-                        </label>
-                        <input type="file"
-                            name="payment_proof"
-                            id="payment_proof"
-                            accept="image/*"
-                            class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-primary-600 focus:outline-none">
-                        <p class="text-sm text-gray-500 mt-2">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Upload screenshot atau foto bukti transfer Anda (Max 2MB)
-                        </p>
                     </div>
 
                     <!-- Anonymous Option -->
@@ -279,19 +329,19 @@
                 <div class="text-blue-700 space-y-2 text-sm">
                     <p>
                         <i class="fas fa-check-circle mr-2 text-green-600"></i>
-                        <strong>Pembayaran Aman:</strong> Semua transaksi dilindungi dengan enkripsi SSL
+                        <strong>Pembayaran Aman:</strong> Semua transaksi dilindungi dengan enkripsi SSL 256-bit
                     </p>
                     <p>
                         <i class="fas fa-bolt mr-2 text-yellow-600"></i>
-                        <strong>Proses Cepat:</strong> Midtrans - verifikasi otomatis, Manual - maksimal 1x24 jam
+                        <strong>Proses Cepat:</strong> Verifikasi otomatis dan notifikasi real-time
                     </p>
                     <p>
                         <i class="fas fa-envelope mr-2 text-blue-600"></i>
-                        <strong>Konfirmasi Email:</strong> Anda akan menerima bukti donasi via email
+                        <strong>Konfirmasi Email:</strong> Bukti donasi langsung dikirim ke email Anda
                     </p>
-                    <p class="mt-3 text-xs bg-white/50 p-2 rounded">
-                        <i class="fas fa-info-circle mr-1"></i>
-                        Untuk pembayaran manual, transfer ke: <strong>BCA 1234567890</strong> atau <strong>Mandiri 9876543210</strong> a.n. DonasiKita
+                    <p>
+                        <i class="fas fa-headset mr-2 text-purple-600"></i>
+                        <strong>Customer Support:</strong> Tim support Midtrans siap membantu 24/7
                     </p>
                 </div>
             </div>
@@ -300,43 +350,42 @@
 </section>
 
 <style>
+    /* Payment Method Card */
     .payment-method-card {
-        position: relative;
-    }
-
-    .payment-method-card input:checked~div {
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    }
-
-    .payment-method-card input:checked~div .radio-circle {
-        background: #3b82f6;
-        border-color: #3b82f6;
-    }
-
-    .payment-method-card input:checked~div .radio-circle::after {
-        content: '✓';
-        color: white;
-        font-weight: bold;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-    }
-
-    .radio-circle {
-        width: 24px;
-        height: 24px;
-        border: 2px solid #d1d5db;
-        border-radius: 50%;
         position: relative;
         transition: all 0.3s ease;
     }
 
     .payment-method-card:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(59, 130, 246, 0.2);
+    }
+
+    /* Gallery Styles */
+    .campaign-gallery-small {
+        position: relative;
+    }
+
+    .gallery-image-small {
+        transition: opacity 0.3s ease;
+    }
+
+    .thumbnail-small {
+        transition: all 0.3s ease;
+    }
+
+    .thumbnail-small:hover {
+        transform: scale(1.05);
+    }
+
+    /* Amount Button Active State */
+    .amount-btn.active {
+        border-color: #3b82f6;
+        background-color: #eff6ff;
     }
 </style>
-
+<script src="<?= base_url('js/campaign-gallery.js') ?>?v=<?= time() ?>"></script>
+<script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="<?= config('Midtrans')->clientKey ?>"></script>
 <script>
     function setAmount(amount) {
         document.getElementById('amount').value = amount;
@@ -348,26 +397,73 @@
         event.target.classList.add('border-primary-600', 'bg-primary-50');
     }
 
-    function togglePaymentProof() {
-        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
-        const proofSection = document.getElementById('payment-proof-section');
-        const proofInput = document.getElementById('payment_proof');
+    // Handle form submission
+    document.getElementById('donationForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
 
-        if (paymentMethod === 'manual') {
-            proofSection.classList.remove('hidden');
-            proofInput.required = true;
-        } else {
-            proofSection.classList.add('hidden');
-            proofInput.required = false;
-            proofInput.value = '';
-        }
-    }
+        const form = this;
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
 
-    // Initialize on page load
-    document.addEventListener('DOMContentLoaded', function() {
-        const selectedMethod = document.querySelector('input[name="payment_method"]:checked');
-        if (selectedMethod) {
-            togglePaymentProof();
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+
+        try {
+            // Submit form via AJAX
+            const formData = new FormData(form);
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                throw new Error('Server tidak mengembalikan response JSON. Periksa error log.');
+            }
+
+            const result = await response.json();
+
+            if (result.success && result.snap_token) {
+                // Open Midtrans Snap popup
+                window.snap.pay(result.snap_token, {
+                    onSuccess: function(result) {
+                        console.log('Payment success:', result);
+                        window.location.href = '/payment/success/' + result.order_id;
+                    },
+                    onPending: function(result) {
+                        console.log('Payment pending:', result);
+                        window.location.href = '/payment/pending/' + result.order_id;
+                    },
+                    onError: function(result) {
+                        console.log('Payment error:', result);
+                        alert('Pembayaran gagal. Silakan coba lagi.');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    },
+                    onClose: function() {
+                        console.log('Customer closed the popup without finishing payment');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    }
+                });
+            } else {
+                // Show validation errors if available
+                let errorMessage = result.message || 'Gagal membuat pembayaran';
+                if (result.errors) {
+                    errorMessage += '\n\n' + Object.values(result.errors).join('\n');
+                }
+                throw new Error(errorMessage);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Terjadi kesalahan: ' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
         }
     });
 </script>

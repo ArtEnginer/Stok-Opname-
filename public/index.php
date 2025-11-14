@@ -50,6 +50,12 @@ require FCPATH . '../app/Config/Paths.php';
 
 $paths = new Config\Paths();
 
+// Fix for Midtrans SSL Certificate Error
+// Must be set BEFORE loading framework to ensure CURL works properly
+// This disables SSL verification for development/sandbox
+ini_set('curl.cainfo', '');
+ini_set('openssl.cafile', '');
+
 // LOAD THE FRAMEWORK BOOTSTRAP FILE
 require $paths->systemDirectory . '/Boot.php';
 

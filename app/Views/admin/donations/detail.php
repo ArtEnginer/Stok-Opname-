@@ -221,11 +221,11 @@
             <?php if (!empty($donation['payment_proof'])): ?>
                 <div class="bg-white rounded-lg shadow-sm p-6">
                     <h3 class="text-sm font-semibold text-gray-900 mb-4">Bukti Transfer</h3>
-                    <img src="<?= base_url('writable/uploads/payments/' . $donation['payment_proof']) ?>"
+                    <img src="<?= upload_url('receipts', $donation['payment_proof']) ?>"
                         alt="Bukti Transfer"
                         class="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-75 transition-opacity"
-                        onclick="showImageModal('<?= base_url('writable/uploads/payments/' . $donation['payment_proof']) ?>')">
-                    <a href="<?= base_url('writable/uploads/payments/' . $donation['payment_proof']) ?>"
+                        onclick="showImageModal('<?= upload_url('receipts', $donation['payment_proof']) ?>')">
+                    <a href="<?= download_url('receipts', $donation['payment_proof']) ?>"
                         target="_blank" download
                         class="block mt-3 text-center text-sm text-primary-600 hover:text-primary-700">
                         <i class="fas fa-download mr-1"></i> Download Gambar
