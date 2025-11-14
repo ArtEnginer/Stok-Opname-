@@ -1,0 +1,1 @@
+ALTER TABLE settings ADD COLUMN context VARCHAR(255) NULL AFTER `key`;

@@ -1,0 +1,140 @@
+* {
+  background-color: white;
+}
+
+*:not(.kop-wrapper *) {
+  color: black !important;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  background-color: gray;
+}
+
+.btn-print {
+  display: none;
+}
+
+.kop-wrapper {
+  display: block;
+}
+
+.content-wrapper .content {
+  padding-top: 0;
+}
+
+.paper {
+  width: 21.5cm;
+  height: 29.7cm;
+  padding: 0cm 2.5cm;
+}
+
+.paper.f4 {
+  width: 21.5cm;
+  height: 33cm;
+}
+.kop-wrapper {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.kop-wrapper img {
+  width: 100%;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+}
+
+p {
+  font-size: 12pt;
+}
+
+table tr th,
+table tr td {
+  text-align: start;
+}
+
+.ttd-skl {
+  margin-top: 8pt;
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ttd-skl img.pasfoto {
+  position: relative;
+  height: 4cm;
+  top: 0;
+  left: 8rem;
+  z-index: 5;
+  background-color: transparent;
+  border: 8pt solid white;
+  box-shadow: 0 0 10px 2px rgba(0, 0, 0, 0.2);
+}
+.ttd-skl img.ttd {
+  position: absolute;
+  height: 12rem;
+  top: -2.5rem;
+  left: -8rem;
+  z-index: 5;
+  background-color: transparent;
+}
+
+table#nilai {
+  width: 80%;
+}
+table#nilai tr:nth-child(1) th {
+  text-align: center;
+}
+table#nilai th,
+table#nilai td {
+  padding: 1.5pt 3pt;
+}
+table#nilai,
+table#nilai th,
+table#nilai td {
+  border: 1px solid black;
+  border-collapse: collapse;
+}
+
+td.number,
+th.number {
+  text-align: center;
+}
+td.nilai,
+th.nilai {
+  text-align: center;
+}
+
+.btn {
+  position: relative;
+  padding: 0.5rem 2rem;
+  margin: 1rem;
+  background-color: rgb(0, 140, 255);
+  color: white !important;
+  border-radius: 1rem;
+  text-decoration: none;
+}
+
+/* media query print */
+@media print {
+  /* target all pages */
+  @page {
+    margin: 0;
+  }
+  .noprint, .noprint * {
+    display: none;
+  }
+}
