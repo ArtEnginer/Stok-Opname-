@@ -72,7 +72,7 @@ class Filters extends BaseFilters
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
-            // 'session' => ['except' => ['api/v2/*', 'admin', 'login', 'register', 'forgot-password', 'reset-password', 'migrate', '/']],
+            'session' => ['except' => ['api/v2/*', 'donate/process', 'about', 'contact', 'campaign*', 'payment/*', 'donate/*', 'uploads/*', '/api/settings/public', 'donate/process', 'login', 'register', 'forgot-password', 'reset-password', '/']],
         ],
         'after' => [
             // 'honeypot',

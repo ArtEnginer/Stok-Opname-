@@ -109,4 +109,4 @@
 <script src="/js/tailwind.js"></script>
 
 
-<title>JASTIP</title>
+<title>DONATE | AUTH</title>

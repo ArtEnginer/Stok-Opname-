@@ -8,22 +8,14 @@
         </div>
     </div>
     <div class="hero-text">
-        <h1>JASTIP</h1>
-        <h2>Jasa Titip Terpercaya</h2>
-        <p>Titipkan barang Anda dengan aman dan terpercaya. Kami siap membantu Anda mendapatkan barang impian dari berbagai daerah.</p>
-        <div class="hero-stats">
-            <div class="stat-item">
-                <span class="stat-number">1000+</span>
-                <span class="stat-label">Pesanan Berhasil</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number">500+</span>
-                <span class="stat-label">Pelanggan Puas</span>
-            </div>
-            <div class="stat-item">
-                <span class="stat-number">50+</span>
-                <span class="stat-label">Kota Terjangkau</span>
-            </div>
-        </div>
+        <h1>DONASI</h1>
+        <h2>
+            Bersama Kita Wujudkan Perubahan Positif
+        </h2>
+        <p>
+            Bergabunglah dengan platform donasi kami dan jadikan setiap kontribusi Anda berarti. Mari bersama-sama
+            menciptakan dunia yang lebih baik melalui tindakan kebaikan dan kepedulian.
+        </p>
+
     </div>
 </div>

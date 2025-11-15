@@ -25,7 +25,7 @@
             <table class="w-full">
                 <thead>
                     <tr class="bg-gray-50 border-b">
-                        <th class="text-left py-3 px-4 font-semibold text-gray-700">ID</th>
+                        <th class="text-left py-3 px-4 font-semibold text-gray-700">NO</th>
                         <th class="text-left py-3 px-4 font-semibold text-gray-700">Image</th>
                         <th class="text-left py-3 px-4 font-semibold text-gray-700">Title</th>
                         <th class="text-left py-3 px-4 font-semibold text-gray-700">Category</th>
@@ -37,12 +37,14 @@
                 </thead>
                 <tbody>
                     <?php if (!empty($campaigns)): ?>
-                        <?php foreach ($campaigns as $campaign):
+                        <?php
+                        $no = 1;
+                        foreach ($campaigns as $campaign):
                             $progress = ($campaign['target_amount'] > 0) ?
                                 min(($campaign['collected_amount'] / $campaign['target_amount']) * 100, 100) : 0;
                         ?>
                             <tr class="border-b hover:bg-gray-50 transition">
-                                <td class="py-3 px-4"><?= $campaign['id'] ?></td>
+                                <td class="py-3 px-4"><?= $no++ ?></td>
                                 <td class="py-3 px-4">
                                     <?php if ($campaign['image']): ?>
 

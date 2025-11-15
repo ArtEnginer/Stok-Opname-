@@ -10,12 +10,63 @@ use Midtrans\Notification;
 
 class MidtransLibrary
 {
+    protected $serverKey;
+    protected $clientKey;
+    protected $isProduction;
+    protected $isSanitized;
+    protected $is3ds;
     protected MidtransConfig $config;
 
     public function __construct()
     {
         $this->config = config('Midtrans');
+        $this->loadSettingsFromDatabase();
         $this->initConfig();
+    }
+
+    /**
+     * Load Midtrans settings from database (priority) or fallback to config file
+     */
+    private function loadSettingsFromDatabase(): void
+    {
+        try {
+            // Use CodeIgniter's database directly instead of Eloquent
+            $db = \Config\Database::connect();
+            $builder = $db->table('app_settings');
+
+            // Get all payment settings at once for efficiency
+            $settings = $builder->whereIn('setting_key', [
+                'midtrans_server_key',
+                'midtrans_client_key',
+                'midtrans_is_production',
+                'midtrans_is_sanitized',
+                'midtrans_is_3ds'
+            ])->get()->getResultArray();
+
+            // Convert to associative array
+            $settingsMap = [];
+            foreach ($settings as $setting) {
+                $settingsMap[$setting['setting_key']] = $setting['setting_value'];
+            }
+
+            // Load settings with fallback to config file
+            $this->serverKey = !empty($settingsMap['midtrans_server_key']) ? $settingsMap['midtrans_server_key'] : $this->config->serverKey;
+            $this->clientKey = !empty($settingsMap['midtrans_client_key']) ? $settingsMap['midtrans_client_key'] : $this->config->clientKey;
+            $this->isProduction = isset($settingsMap['midtrans_is_production']) ? (bool) $settingsMap['midtrans_is_production'] : $this->config->isProduction;
+            $this->isSanitized = isset($settingsMap['midtrans_is_sanitized']) ? (bool) $settingsMap['midtrans_is_sanitized'] : $this->config->isSanitized;
+            $this->is3ds = isset($settingsMap['midtrans_is_3ds']) ? (bool) $settingsMap['midtrans_is_3ds'] : $this->config->is3ds;
+
+            log_message('info', 'Midtrans config loaded - Server Key: ' . substr($this->serverKey, 0, 10) . '... | Production: ' . ($this->isProduction ? 'Yes' : 'No'));
+        } catch (\Exception $e) {
+            // If database error, fallback to config file
+            log_message('error', 'Failed to load Midtrans settings from database: ' . $e->getMessage() . '. Using config file instead.');
+
+            $this->serverKey = $this->config->serverKey;
+            $this->clientKey = $this->config->clientKey;
+            $this->isProduction = $this->config->isProduction;
+            $this->isSanitized = $this->config->isSanitized;
+            $this->is3ds = $this->config->is3ds;
+        }
     }
 
     /**
@@ -23,11 +74,11 @@ class MidtransLibrary
      */
     private function initConfig(): void
     {
-        Config::$serverKey = $this->config->serverKey;
-        Config::$clientKey = $this->config->clientKey;
-        Config::$isProduction = $this->config->isProduction;
-        Config::$isSanitized = $this->config->isSanitized;
-        Config::$is3ds = $this->config->is3ds;
+        Config::$serverKey = $this->serverKey;
+        Config::$clientKey = $this->clientKey;
+        Config::$isProduction = $this->isProduction;
+        Config::$isSanitized = $this->isSanitized;
+        Config::$is3ds = $this->is3ds;
 
         // Fix CURL options - gunakan konstanta yang benar
         Config::$curlOptions = [
@@ -46,7 +97,7 @@ class MidtransLibrary
     {
         try {
             // Use raw CURL to avoid Midtrans Config array key issues
-            $url = $this->config->isProduction
+            $url = $this->isProduction
                 ? 'https://app.midtrans.com/snap/v1/transactions'
                 : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
 
@@ -56,7 +107,7 @@ class MidtransLibrary
                 CURLOPT_HTTPHEADER => [
                     'Content-Type: application/json',
                     'Accept: application/json',
-                    'Authorization: Basic ' . base64_encode($this->config->serverKey . ':')
+                    'Authorization: Basic ' . base64_encode($this->serverKey . ':')
                 ],
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => json_encode($params),
@@ -236,5 +287,55 @@ class MidtransLibrary
         ];
 
         return $methods[$paymentType] ?? ucwords(str_replace('_', ' ', $paymentType));
+    }
+
+    /**
+     * Get server key
+     * 
+     * @return string
+     */
+    public function getServerKey(): string
+    {
+        return $this->serverKey;
+    }
+
+    /**
+     * Get client key
+     * 
+     * @return string
+     */
+    public function getClientKey(): string
+    {
+        return $this->clientKey;
+    }
+
+    /**
+     * Check if in production mode
+     * 
+     * @return bool
+     */
+    public function isProduction(): bool
+    {
+        return $this->isProduction;
+    }
+
+    /**
+     * Check if sanitization is enabled
+     * 
+     * @return bool
+     */
+    public function isSanitized(): bool
+    {
+        return $this->isSanitized;
+    }
+
+    /**
+     * Check if 3D Secure is enabled
+     * 
+     * @return bool
+     */
+    public function is3ds(): bool
+    {
+        return $this->is3ds;
     }
 }

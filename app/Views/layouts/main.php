@@ -173,7 +173,7 @@
                 <!-- Logo -->
                 <a href="/" class="flex items-center space-x-2 group">
                     <template x-if="appSettings?.app_logo">
-                        <img :src="`/writable/uploads/settings/${appSettings.app_logo}`"
+                        <img :src="`${appSettings.app_logo}`"
                             :alt="appSettings?.app_name || 'DonasiKita'"
                             class="h-10 w-auto object-contain">
                     </template>
@@ -252,28 +252,24 @@
 
     <!-- Footer -->
     <footer class="bg-gray-900 text-white mt-20">
-        <div class="container mx-auto px-4 py-12" x-data="{ footerSettings: null }" x-init="
-            if (appSettings) {
-                footerSettings = appSettings;
-            }
-        ">
+        <div class="container mx-auto px-4 py-12">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
                 <!-- About -->
                 <div>
                     <h3 class="text-xl font-bold mb-4">
-                        <template x-if="footerSettings?.app_logo">
-                            <img :src="`/writable/uploads/settings/${footerSettings.app_logo}`"
-                                :alt="footerSettings?.app_name || 'DonasiKita'"
+                        <template x-if="appSettings?.app_logo">
+                            <img :src="`${appSettings.app_logo}`"
+                                :alt="appSettings?.app_name || 'DonasiKita'"
                                 class="h-10 w-auto object-contain mb-2 brightness-0 invert">
                         </template>
-                        <template x-if="!footerSettings?.app_logo">
+                        <template x-if="!appSettings?.app_logo">
                             <span>
                                 <i class="fas fa-hands-holding-heart mr-2"></i>
-                                <span x-text="footerSettings?.app_name || 'DonasiKita'"></span>
+                                <span x-text="appSettings?.app_name || 'DonasiKita'"></span>
                             </span>
                         </template>
                     </h3>
-                    <p class="text-gray-400" x-text="footerSettings?.app_description || 'Platform donasi online terpercaya untuk membantu sesama yang membutuhkan.'">
+                    <p class="text-gray-400" x-text="appSettings?.app_description || 'Platform donasi online terpercaya untuk membantu sesama yang membutuhkan.'">
                     </p>
                 </div>
 
@@ -321,40 +317,40 @@
                     <ul class="space-y-3 text-gray-400 text-sm">
                         <li class="flex items-start">
                             <i class="fas fa-envelope mt-1 mr-3 text-primary-500"></i>
-                            <span x-text="footerSettings?.app_email || 'info@donasikita.com'"></span>
+                            <span x-text="appSettings?.app_email || 'info@donasikita.com'"></span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-phone mt-1 mr-3 text-primary-500"></i>
-                            <span x-text="footerSettings?.app_phone || '+62 812-3456-7890'"></span>
+                            <span x-text="appSettings?.app_phone || '+62 812-3456-7890'"></span>
                         </li>
                         <li class="flex items-start">
                             <i class="fas fa-map-marker-alt mt-1 mr-3 text-primary-500"></i>
-                            <span x-text="footerSettings?.app_address || 'Jakarta, Indonesia'"></span>
+                            <span x-text="appSettings?.app_address || 'Jakarta, Indonesia'"></span>
                         </li>
                     </ul>
                     <div class="flex space-x-3 mt-6">
-                        <a :href="footerSettings?.social_facebook || '#'"
-                            x-show="footerSettings?.social_facebook"
+                        <a :href="appSettings?.social_facebook || '#'"
+                            x-show="appSettings?.social_facebook"
                             class="w-10 h-10 bg-gray-800 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all transform hover:scale-110">
                             <i class="fab fa-facebook"></i>
                         </a>
-                        <a :href="footerSettings?.social_twitter || '#'"
-                            x-show="footerSettings?.social_twitter"
+                        <a :href="appSettings?.social_twitter || '#'"
+                            x-show="appSettings?.social_twitter"
                             class="w-10 h-10 bg-gray-800 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all transform hover:scale-110">
                             <i class="fab fa-twitter"></i>
                         </a>
-                        <a :href="footerSettings?.social_instagram || '#'"
-                            x-show="footerSettings?.social_instagram"
+                        <a :href="appSettings?.social_instagram || '#'"
+                            x-show="appSettings?.social_instagram"
                             class="w-10 h-10 bg-gray-800 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all transform hover:scale-110">
                             <i class="fab fa-instagram"></i>
                         </a>
-                        <a :href="footerSettings?.social_youtube || '#'"
-                            x-show="footerSettings?.social_youtube"
+                        <a :href="appSettings?.social_youtube || '#'"
+                            x-show="appSettings?.social_youtube"
                             class="w-10 h-10 bg-gray-800 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all transform hover:scale-110">
                             <i class="fab fa-youtube"></i>
                         </a>
-                        <a :href="footerSettings?.social_linkedin || '#'"
-                            x-show="footerSettings?.social_linkedin"
+                        <a :href="appSettings?.social_linkedin || '#'"
+                            x-show="appSettings?.social_linkedin"
                             class="w-10 h-10 bg-gray-800 hover:bg-primary-600 rounded-full flex items-center justify-center transition-all transform hover:scale-110">
                             <i class="fab fa-linkedin"></i>
                         </a>
@@ -363,7 +359,7 @@
             </div>
 
             <div class="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-                <p>&copy; <?= date('Y') ?> <span x-text="footerSettings?.app_name || 'DonasiKita'"></span>. All rights reserved.</p>
+                <p>&copy; <?= date('Y') ?> <span x-text="appSettings?.app_name || 'DonasiKita'"></span>. All rights reserved.</p>
             </div>
         </div>
     </footer>

@@ -31,11 +31,23 @@ class DonationController extends BaseController
             return redirect()->to('/campaign/' . $slug)->with('error', 'Campaign ini tidak aktif');
         }
 
+        // Get Midtrans configuration from database (via library which has priority over config file)
+        $midtransLib = new MidtransLibrary();
+        $isProduction = $midtransLib->isProduction();
+        $clientKey = $midtransLib->getClientKey();
+
+        $snapUrl = $isProduction
+            ? 'https://app.midtrans.com/snap/snap.js'
+            : 'https://app.sandbox.midtrans.com/snap/snap.js';
+
         $data = [
             'title' => 'Donasi untuk ' . $campaign['title'],
             'metaDescription' => 'Berdonasi untuk ' . $campaign['title'],
             'campaign' => $campaign,
             'progress' => $this->campaignModel->getProgress($campaign),
+            'midtransSnapUrl' => $snapUrl,
+            'midtransClientKey' => $clientKey,
+            'midtransIsProduction' => $isProduction,
         ];
 
         return view('pages/donation_form', $data);

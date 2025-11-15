@@ -10,6 +10,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call('CategorySeeder');
         $this->call('CampaignSeeder');
+        $this->call('AppSettingsSeeder');
+        $this->call('InitSeeder');
 
         echo "\n✅ Database seeded successfully!\n";
         echo "   - Categories: 6 items\n";

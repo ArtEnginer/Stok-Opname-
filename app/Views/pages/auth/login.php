@@ -9,17 +9,17 @@
 <div class="auth-card">
     <div class="auth-header">
         <div class="logo-container">
-            <i class="material-icons jastip-icon">local_shipping</i>
+            <i class="material-icons jastip-icon">volunteer_activism</i>
         </div>
         <h1 class="title">
-            JASTIP
+            PLATFORM DONASI
         </h1>
-        <p class="subtitle">Jasa Titip Barang Terpercaya</p>
+        <p class="subtitle">Berbagi Kebaikan, Wujudkan Harapan</p>
     </div>
 
     <div class="welcome-text">
         <h2>Selamat Datang Kembali!</h2>
-        <p>Masuk untuk melanjutkan perjalanan jasa titip Anda</p>
+        <p>Masuk untuk melanjutkan perjalanan berbagi kebaikan Anda</p>
     </div>
 
     <div class="row card-body">
@@ -67,12 +67,12 @@
             <span>Aman & Terpercaya</span>
         </div>
         <div class="feature-item">
-            <i class="material-icons">schedule</i>
-            <span>Cepat & Tepat Waktu</span>
+            <i class="material-icons">favorite</i>
+            <span>Transparan & Akuntabel</span>
         </div>
         <div class="feature-item">
-            <i class="material-icons">verified_user</i>
-            <span>Garansi Terjamin</span>
+            <i class="material-icons">people</i>
+            <span>Berdampak Nyata</span>
         </div>
     </div>
 </div>

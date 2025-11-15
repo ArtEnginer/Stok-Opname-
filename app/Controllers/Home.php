@@ -38,9 +38,11 @@ class Home extends BaseController
 
     public function about()
     {
+        helper('settings');
+
         $data = [
-            'title' => 'Tentang Kami',
-            'metaDescription' => 'Tentang platform donasi online kami',
+            'title' => 'Tentang Kami - ' . setting('App.general.app_name', 'Platform Donasi'),
+            'metaDescription' => setting('App.about.about_organization', 'Tentang platform donasi online kami'),
         ];
 
         return view('pages/about', $data);
@@ -48,8 +50,10 @@ class Home extends BaseController
 
     public function contact()
     {
+        helper('settings');
+
         $data = [
-            'title' => 'Hubungi Kami',
+            'title' => 'Hubungi Kami - ' . setting('App.general.app_name', 'Platform Donasi'),
             'metaDescription' => 'Hubungi kami untuk informasi lebih lanjut',
         ];
 

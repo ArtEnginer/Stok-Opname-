@@ -9,6 +9,7 @@ use App\Controllers\Admin\CampaignManageController;
 use App\Controllers\Admin\DonationManageController;
 use App\Controllers\Admin\SettingsController;
 use App\Controllers\Admin\MidtransConfigController;
+use App\Controllers\Admin\ProfileController;
 use App\Controllers\Api\SettingsApiController;
 use App\Controllers\Migrate;
 use CodeIgniter\Router\RouteCollection;
@@ -92,20 +93,28 @@ $routes->group('admin', static function (RouteCollection $routes) {
     // Settings Management
     $routes->get('settings', [SettingsController::class, 'index']);
     $routes->get('settings/grouped', [SettingsController::class, 'getGrouped']);
-    $routes->get('settings/(:segment)', [SettingsController::class, 'show/$1']);
-    $routes->post('settings', [SettingsController::class, 'create']);
-    $routes->put('settings/(:segment)', [SettingsController::class, 'update/$1']);
-    $routes->put('settings/batch', [SettingsController::class, 'updateBatch']);
-    $routes->delete('settings/(:segment)', [SettingsController::class, 'delete/$1']);
-    $routes->post('settings/(:segment)/upload', [SettingsController::class, 'uploadFile/$1']);
     $routes->get('settings/payment/midtrans', [SettingsController::class, 'getMidtransSettings']);
     $routes->put('settings/payment/midtrans', [SettingsController::class, 'updateMidtransSettings']);
+    $routes->put('settings/batch', [SettingsController::class, 'updateBatch']);
+    $routes->post('settings', [SettingsController::class, 'create']);
+    $routes->get('settings/(:segment)', [SettingsController::class, 'show/$1']);
+    $routes->put('settings/(:segment)', [SettingsController::class, 'update/$1']);
+    $routes->delete('settings/(:segment)', [SettingsController::class, 'delete/$1']);
+    $routes->post('settings/(:segment)/upload', [SettingsController::class, 'uploadFile/$1']);
 
     // Midtrans Configuration
     $routes->post('midtrans/test-connection', [MidtransConfigController::class, 'testConnection']);
     $routes->get('midtrans/dashboard-info', [MidtransConfigController::class, 'getDashboardInfo']);
     $routes->post('midtrans/validate', [MidtransConfigController::class, 'validateCredentials']);
     $routes->get('midtrans/payment-methods', [MidtransConfigController::class, 'getPaymentMethods']);
+
+    // Profile Management
+    $routes->group('profile', ['namespace' => 'App\Controllers\Admin'], static function (RouteCollection $routes) {
+        $routes->get('', 'ProfileController::index');
+        $routes->post('update', 'ProfileController::update');
+        $routes->post('update-email', 'ProfileController::updateEmail');
+        $routes->post('update-password', 'ProfileController::updatePassword');
+    });
 });
 
 // API Routes

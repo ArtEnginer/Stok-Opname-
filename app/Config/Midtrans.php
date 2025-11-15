@@ -10,13 +10,13 @@ class Midtrans extends BaseConfig
      * Merchant Server Key
      * Get from Midtrans Dashboard: https://dashboard.midtrans.com/settings/config_info
      */
-    public string $serverKey = 'Mid-server-toKKlZWXkaLmKbywzLk3z17y';
+    public string $serverKey = '';
 
     /**
      * Merchant Client Key
      * Get from Midtrans Dashboard: https://dashboard.midtrans.com/settings/config_info
      */
-    public string $clientKey = 'Mid-client-LDxz5bQpP2v2-w0V';
+    public string $clientKey = '';
 
     /**
      * Set to true for production, false for sandbox

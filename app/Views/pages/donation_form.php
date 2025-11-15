@@ -226,14 +226,14 @@
                         <input type="hidden" name="payment_method" value="midtrans">
 
                         <!-- Midtrans Payment Card -->
-                        <div class="payment-method-card border-3 border-primary-600 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <!-- <div class="payment-method-card border-3 border-primary-600 rounded-lg bg-gradient-to-r from-blue-50 to-indigo-50">
                             <div class="p-6">
                                 <div class="flex items-center mb-4">
                                     <div class="w-14 h-14 bg-gradient-to-r from-primary-500 to-primary-700 rounded-xl flex items-center justify-center mr-4 shadow-lg">
                                         <i class="fas fa-credit-card text-white text-2xl"></i>
                                     </div>
                                     <div>
-                                        <h3 class="font-bold text-gray-800 text-lg">Midtrans Payment Gateway</h3>
+                                        <h3 class="font-bold text-gray-800 text-lg">Payment Gateway</h3>
                                         <p class="text-sm text-gray-600">Pembayaran Aman & Otomatis</p>
                                     </div>
                                 </div>
@@ -268,28 +268,9 @@
                                     </div>
                                 </div>
 
-                                <div class="space-y-2">
-                                    <div class="flex items-start">
-                                        <i class="fas fa-check-circle text-green-500 mr-2 mt-1"></i>
-                                        <p class="text-sm text-gray-700">
-                                            <strong>Proses Otomatis:</strong> Donasi langsung masuk setelah pembayaran berhasil
-                                        </p>
-                                    </div>
-                                    <div class="flex items-start">
-                                        <i class="fas fa-shield-alt text-blue-500 mr-2 mt-1"></i>
-                                        <p class="text-sm text-gray-700">
-                                            <strong>Aman & Terpercaya:</strong> Dienkripsi dengan standar keamanan internasional
-                                        </p>
-                                    </div>
-                                    <div class="flex items-start">
-                                        <i class="fas fa-bolt text-yellow-500 mr-2 mt-1"></i>
-                                        <p class="text-sm text-gray-700">
-                                            <strong>Verifikasi Instan:</strong> Notifikasi real-time via email
-                                        </p>
-                                    </div>
-                                </div>
+
                             </div>
-                        </div>
+                        </div> -->
                     </div>
 
                     <!-- Anonymous Option -->
@@ -336,13 +317,18 @@
                         <strong>Proses Cepat:</strong> Verifikasi otomatis dan notifikasi real-time
                     </p>
                     <p>
-                        <i class="fas fa-envelope mr-2 text-blue-600"></i>
-                        <strong>Konfirmasi Email:</strong> Bukti donasi langsung dikirim ke email Anda
-                    </p>
-                    <p>
                         <i class="fas fa-headset mr-2 text-purple-600"></i>
                         <strong>Customer Support:</strong> Tim support Midtrans siap membantu 24/7
                     </p>
+                    <?php if (ENVIRONMENT === 'development' || !$midtransIsProduction): ?>
+                        <p class="mt-3 pt-3 border-t border-blue-300">
+                            <i class="fas fa-info-circle mr-2 text-orange-600"></i>
+                            <strong class="text-orange-700">Mode:</strong>
+                            <span class="text-orange-600 font-semibold">
+                                <?= $midtransIsProduction ? 'Production' : 'Sandbox (Testing)' ?>
+                            </span>
+                        </p>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -385,7 +371,7 @@
     }
 </style>
 <script src="<?= base_url('js/campaign-gallery.js') ?>?v=<?= time() ?>"></script>
-<script type="text/javascript" src="https://app.sandbox.midtrans.com/snap/snap.js" data-client-key="<?= config('Midtrans')->clientKey ?>"></script>
+<script type="text/javascript" src="<?= $midtransSnapUrl ?>" data-client-key="<?= $midtransClientKey ?>"></script>
 <script>
     function setAmount(amount) {
         document.getElementById('amount').value = amount;
@@ -433,17 +419,15 @@
                 window.snap.pay(result.snap_token, {
                     onSuccess: function(result) {
                         console.log('Payment success:', result);
-                        window.location.href = '/payment/success/' + result.order_id;
+                        window.location.href = '/payment/finish?order_id=' + result.order_id;
                     },
                     onPending: function(result) {
                         console.log('Payment pending:', result);
-                        window.location.href = '/payment/pending/' + result.order_id;
+                        window.location.href = '/payment/unfinish?order_id=' + result.order_id;
                     },
                     onError: function(result) {
                         console.log('Payment error:', result);
-                        alert('Pembayaran gagal. Silakan coba lagi.');
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalBtnText;
+                        window.location.href = '/payment/error?order_id=' + result.order_id;
                     },
                     onClose: function() {
                         console.log('Customer closed the popup without finishing payment');

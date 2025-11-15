@@ -161,14 +161,12 @@
                 },
                 onError: function(result) {
                     console.error('Payment error:', result);
-                    alert('Terjadi kesalahan pembayaran: ' + (result.status_message || 'Unknown error'));
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-lock mr-2"></i>Bayar Sekarang';
+                    window.location.href = '/payment/error?order_id=<?= esc($donation['transaction_id']) ?>';
                 },
                 onClose: function() {
-                    console.log('Payment popup closed');
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fas fa-lock mr-2"></i>Bayar Sekarang';
+                    console.log('Payment popup closed by user');
+                    // Redirect ke halaman unfinish ketika user menutup dialog
+                    window.location.href = '/payment/unfinish?order_id=<?= esc($donation['transaction_id']) ?>';
                 }
             });
         } catch (error) {

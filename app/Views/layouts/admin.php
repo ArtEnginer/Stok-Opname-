@@ -45,7 +45,17 @@
     </script>
 </head>
 
-<body class="bg-gray-100" x-data="{ sidebarOpen: true }">
+<body class="bg-gray-100" x-data="{ sidebarOpen: true, appSettings: null }" x-init="
+    fetch('/api/settings/public')
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                appSettings = data.data;
+                document.title = (appSettings.app_name || 'DonasiKita') + ' - Admin Panel';
+            }
+        })
+        .catch(() => {});
+">
     <div class="flex h-screen overflow-hidden">
         <!-- Sidebar -->
         <aside :class="sidebarOpen ? 'w-64' : 'w-20'"
@@ -53,7 +63,7 @@
             <div class="p-4 flex items-center justify-between">
                 <h1 :class="!sidebarOpen && 'hidden'" class="text-2xl font-bold">
                     <i class="fas fa-hands-holding-heart mr-2"></i>
-                    <span>DonasiKita</span>
+                    <span x-text="appSettings?.app_name || 'DonasiKita'">DonasiKita</span>
                 </h1>
                 <button @click="sidebarOpen = !sidebarOpen"
                     class="text-white hover:text-primary-400 transition">
@@ -88,11 +98,23 @@
                     <span :class="!sidebarOpen && 'hidden'" class="ml-3">Settings Aplikasi</span>
                 </a>
 
+                <a href="/admin/profile"
+                    class="flex items-center px-6 py-3 hover:bg-gray-800 transition <?= strpos(uri_string(), 'admin/profile') !== false ? 'bg-gray-800 border-l-4 border-primary-500' : '' ?>">
+                    <i class="fas fa-user-circle w-6"></i>
+                    <span :class="!sidebarOpen && 'hidden'" class="ml-3">Profile Saya</span>
+                </a>
+
                 <a href="/"
                     target="_blank"
                     class="flex items-center px-6 py-3 hover:bg-gray-800 transition">
                     <i class="fas fa-external-link-alt w-6"></i>
                     <span :class="!sidebarOpen && 'hidden'" class="ml-3">Lihat Website</span>
+                </a>
+
+                <a href="/logout"
+                    class="flex items-center px-6 py-3 hover:bg-red-900 transition text-red-300 hover:text-white">
+                    <i class="fas fa-sign-out-alt w-6"></i>
+                    <span :class="!sidebarOpen && 'hidden'" class="ml-3">Logout</span>
                 </a>
             </nav>
         </aside>

@@ -37,10 +37,10 @@ class DonationManageController extends BaseController
 
         // Get statistics
         $stats = [
-            'pending' => $this->donationModel->where('status', 'pending')->countAllResults(false),
-            'verified' => $this->donationModel->where('status', 'verified')->countAllResults(false),
-            'rejected' => $this->donationModel->where('status', 'rejected')->countAllResults(false),
-            'total_amount' => $this->donationModel->selectSum('amount')->where('status', 'verified')->first()['amount'] ?? 0,
+            'pending' => $this->donationModel->where('status', 'pending')->countAllResults(),
+            'verified' => $this->donationModel->where('status', 'verified')->countAllResults(),
+            'rejected' => $this->donationModel->where('status', 'rejected')->countAllResults(),
+            'total_amount' => $this->donationModel->where('status', 'verified')->selectSum('amount')->get()->getRow()->amount ?? 0,
         ];
 
         $data = [

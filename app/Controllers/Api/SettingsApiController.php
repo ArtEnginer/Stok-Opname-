@@ -25,18 +25,15 @@ class SettingsApiController extends BaseController
                 'app_favicon' => $this->getFileUrl(AppSettingModel::get('app_favicon')),
                 'app_email' => AppSettingModel::get('app_email'),
                 'app_phone' => AppSettingModel::get('app_phone'),
-                'social_media' => [
-                    'facebook' => AppSettingModel::get('social_facebook'),
-                    'twitter' => AppSettingModel::get('social_twitter'),
-                    'instagram' => AppSettingModel::get('social_instagram'),
-                    'linkedin' => AppSettingModel::get('social_linkedin'),
-                    'youtube' => AppSettingModel::get('social_youtube'),
-                ],
-                'seo' => [
-                    'meta_title' => AppSettingModel::get('seo_meta_title'),
-                    'meta_description' => AppSettingModel::get('seo_meta_description'),
-                    'meta_keywords' => AppSettingModel::get('seo_meta_keywords'),
-                ],
+                'app_address' => AppSettingModel::get('app_address'),
+                'social_facebook' => AppSettingModel::get('social_facebook'),
+                'social_twitter' => AppSettingModel::get('social_twitter'),
+                'social_instagram' => AppSettingModel::get('social_instagram'),
+                'social_linkedin' => AppSettingModel::get('social_linkedin'),
+                'social_youtube' => AppSettingModel::get('social_youtube'),
+                'seo_meta_title' => AppSettingModel::get('seo_meta_title'),
+                'seo_meta_description' => AppSettingModel::get('seo_meta_description'),
+                'seo_meta_keywords' => AppSettingModel::get('seo_meta_keywords'),
                 'midtrans_client_key' => AppSettingModel::get('midtrans_client_key'),
                 'midtrans_is_production' => (bool) AppSettingModel::get('midtrans_is_production'),
                 'maintenance_mode' => (bool) AppSettingModel::get('maintenance_mode'),
@@ -120,7 +117,7 @@ class SettingsApiController extends BaseController
     protected function getFileUrl($filename)
     {
         if ($filename) {
-            return base_url('writable/uploads/settings/' . $filename);
+            return base_url('uploads/settings/' . $filename);
         }
         return null;
     }

@@ -460,7 +460,7 @@
                 if (this.settings[key]) {
                     const preview = document.getElementById(previewId);
                     if (preview) {
-                        preview.innerHTML = `<img src="/writable/uploads/settings/${this.settings[key]}" alt="Preview" class="max-w-xs rounded border">`;
+                        preview.innerHTML = `<img src="/uploads/settings/${this.settings[key]}" alt="Preview" class="max-w-xs rounded border">`;
                     }
                 }
             },
