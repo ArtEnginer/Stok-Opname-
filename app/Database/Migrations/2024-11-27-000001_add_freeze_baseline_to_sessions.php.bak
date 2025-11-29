@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Database\Migrations;
+
+use CodeIgniter\Database\Migration;
+
+class AddFreezeBaselineToSessions extends Migration
+{
+    public function up()
+    {
+        // Add freeze baseline columns to stock_opname_sessions
+        $fields = [
+            'baseline_freeze_date' => [
+                'type' => 'DATE',
+                'null' => true,
+                'after' => 'session_date',
+                'comment' => 'Date when baseline is frozen (if frozen)'
+            ],
+            'is_baseline_frozen' => [
+                'type' => 'BOOLEAN',
+                'default' => false,
+                'null' => false,
+                'after' => 'baseline_freeze_date',
+                'comment' => 'Whether baseline is frozen or real-time'
+            ],
+        ];
+
+        $this->forge->addColumn('stock_opname_sessions', $fields);
+    }
+
+    public function down()
+    {
+        $this->forge->dropColumn('stock_opname_sessions', ['baseline_freeze_date', 'is_baseline_frozen']);
+    }
+}

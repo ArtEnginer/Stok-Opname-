@@ -1,128 +1,131 @@
 <?php
 
 use App\Controllers\Home;
-use App\Controllers\CampaignController;
-use App\Controllers\DonationController;
-use App\Controllers\FileController;
-use App\Controllers\Admin\AdminController;
-use App\Controllers\Admin\CampaignManageController;
-use App\Controllers\Admin\DonationManageController;
-use App\Controllers\Admin\SettingsController;
-use App\Controllers\Admin\MidtransConfigController;
-use App\Controllers\Admin\ProfileController;
-use App\Controllers\Api\SettingsApiController;
-use App\Controllers\Migrate;
+use App\Controllers\AuthController;
+use App\Controllers\StockOpnameController;
+use App\Controllers\ProductController;
+use App\Controllers\TransactionController;
+use App\Controllers\Admin\LocationController;
+use App\Controllers\Admin\UserController;
 use CodeIgniter\Router\RouteCollection;
 
 /**
  * @var RouteCollection $routes
  */
 
-// Frontend Routes
-$routes->get('/', [Home::class, 'index']);
+// Public Routes
+$routes->get('login', [AuthController::class, 'login']);
+$routes->post('login', [AuthController::class, 'loginProcess']);
+$routes->get('register', [AuthController::class, 'register']);
+$routes->post('register', [AuthController::class, 'registerProcess']);
+$routes->get('logout', [AuthController::class, 'logout']);
 
-// File Serving Routes (untuk akses file di writable/uploads)
-$routes->get('uploads/(:segment)/(:segment)', [FileController::class, 'serve/$1/$2']);
-$routes->get('files/campaigns/(:segment)', [FileController::class, 'campaigns/$1']);
-$routes->get('files/receipts/(:segment)', [FileController::class, 'receipts/$1']);
-$routes->get('files/updates/(:segment)', [FileController::class, 'updates/$1']);
-$routes->get('files/download/(:segment)/(:segment)', [FileController::class, 'download/$1/$2']);
+// Protected Routes - Require Login
+$routes->group('', ['filter' => 'session'], static function (RouteCollection $routes) {
+    // Dashboard
+    $routes->get('/', [Home::class, 'index']);
+    $routes->get('dashboard', [AuthController::class, 'dashboard']);
 
-$routes->get('campaign', [CampaignController::class, 'index']);
-$routes->get('campaign/(:segment)', [CampaignController::class, 'detail/$1']);
-$routes->post('campaign/(:segment)/comment', [CampaignController::class, 'postComment/$1']);
-$routes->get('donate/(:segment)', [DonationController::class, 'form/$1']);
-$routes->post('donate/process', [DonationController::class, 'process']);
-$routes->get('donate/success/(:segment)', [DonationController::class, 'success/$1']);
+    // Stock Opname Routes
+    $routes->group('stock-opname', static function (RouteCollection $routes) {
+        $routes->get('', [StockOpnameController::class, 'index']);
+        $routes->get('create', [StockOpnameController::class, 'create'], ['filter' => 'permission:stockopname.create']);
+        $routes->post('store', [StockOpnameController::class, 'store'], ['filter' => 'permission:stockopname.create']);
+        $routes->get('(:num)', [StockOpnameController::class, 'show/$1']);
+        $routes->get('(:num)/batch-input', [StockOpnameController::class, 'batchInput/$1']);
+        $routes->get('(:num)/search-item', [StockOpnameController::class, 'searchItem/$1']);
+        $routes->post('(:num)/batch-save', [StockOpnameController::class, 'saveBatchInput/$1']);
+        $routes->post('update-item/(:num)', [StockOpnameController::class, 'updateItem/$1'], ['filter' => 'permission:stockopname.edit']);
+        $routes->get('(:num)/close', [StockOpnameController::class, 'close/$1'], ['filter' => 'permission:stockopname.close']);
+        $routes->get('(:num)/reopen', [StockOpnameController::class, 'reopen/$1'], ['filter' => 'permission:stockopname.close']);
+        $routes->get('(:num)/export', [StockOpnameController::class, 'export/$1']);
 
-// Payment Routes
-$routes->group('payment', ['namespace' => 'App\Controllers'], static function (RouteCollection $routes) {
-    $routes->get('(:segment)', 'PaymentController::index/$1');
-    $routes->post('notification', 'PaymentController::notification');
-    $routes->get('finish', 'PaymentController::finish');
-    $routes->get('unfinish', 'PaymentController::unfinish');
-    $routes->get('error', 'PaymentController::error');
-    $routes->get('check/(:segment)', 'PaymentController::checkStatus/$1');
-});
+        // Print & Export Report
+        $routes->get('(:num)/print-report', [StockOpnameController::class, 'printReport/$1']);
+        $routes->get('(:num)/export-report', [StockOpnameController::class, 'exportReport/$1']);
 
-// Receipt Routes
-$routes->group('receipt', ['namespace' => 'App\Controllers'], static function (RouteCollection $routes) {
-    $routes->get('(:segment)', 'ReceiptController::view/$1');
-    $routes->get('download/(:segment)', 'ReceiptController::download/$1');
-    $routes->post('email/(:segment)', 'ReceiptController::sendEmail/$1');
-});
+        // New: Freeze/Unfreeze baseline
+        $routes->post('(:num)/freeze-baseline', [StockOpnameController::class, 'freezeBaseline/$1'], ['filter' => 'permission:stockopname.edit']);
+        $routes->post('(:num)/unfreeze-baseline', [StockOpnameController::class, 'unfreezeBaseline/$1'], ['filter' => 'permission:stockopname.edit']);
 
-$routes->get('about', [Home::class, 'about']);
-$routes->get('contact', [Home::class, 'contact']);
-
-// Migration routes (development only)
-$routes->environment('development', static function ($routes) {
-    $routes->get('migrate', [Migrate::class, 'index']);
-    $routes->get('migrate/(:any)', [Migrate::class, 'execute']);
-    // Test upload access
-    $routes->get('test-upload', static function () {
-        return view('test_upload');
-    });
-});
-
-// Admin Panel Routes
-$routes->group('admin', static function (RouteCollection $routes) {
-    $routes->get('', [AdminController::class, 'dashboard']);
-    $routes->get('dashboard', [AdminController::class, 'dashboard']);
-
-    // Settings Page View
-    $routes->get('settings-page', static function () {
-        return view('admin/settings');
+        // New: Mutation detail AJAX
+        $routes->get('(:num)/mutation-detail/(:num)', [StockOpnameController::class, 'getMutationDetail/$1/$2']);
     });
 
-    // Campaign Management
-    $routes->get('campaigns', [CampaignManageController::class, 'index']);
-    $routes->get('campaigns/create', [CampaignManageController::class, 'create']);
-    $routes->post('campaigns/store', [CampaignManageController::class, 'store']);
-    $routes->get('campaigns/edit/(:segment)', [CampaignManageController::class, 'edit/$1']);
-    $routes->post('campaigns/update/(:segment)', [CampaignManageController::class, 'update/$1']);
-    $routes->post('campaigns/delete/(:segment)', [CampaignManageController::class, 'delete/$1']);
+    // Product Routes - Admin Only
+    $routes->group('products', ['filter' => 'permission:products.manage'], static function (RouteCollection $routes) {
+        $routes->get('', [ProductController::class, 'index']);
+        $routes->get('create', [ProductController::class, 'create']);
+        $routes->post('store', [ProductController::class, 'store']);
+        $routes->get('edit/(:num)', [ProductController::class, 'edit/$1']);
+        $routes->post('update/(:num)', [ProductController::class, 'update/$1']);
+        $routes->get('delete/(:num)', [ProductController::class, 'delete/$1']);
 
-    // Donation Management
-    $routes->get('donations', [DonationManageController::class, 'index']);
-    $routes->get('donations/detail/(:segment)', [DonationManageController::class, 'detail/$1']);
-    $routes->post('donations/verify/(:segment)', [DonationManageController::class, 'verify/$1']);
-    $routes->post('donations/reject/(:segment)', [DonationManageController::class, 'reject/$1']);
-    $routes->get('donations/export', [DonationManageController::class, 'export']);
+        // Import routes
+        $routes->get('import', [ProductController::class, 'import']);
+        $routes->post('import/process', [ProductController::class, 'processImport']);
+        $routes->get('import-preview', [ProductController::class, 'importPreview']);
+        $routes->post('import/confirm', [ProductController::class, 'confirmImport']);
+        $routes->get('import/template', [ProductController::class, 'downloadTemplate']);
+        $routes->get('download-import-log', [ProductController::class, 'downloadImportLog']);
+    });
 
-    // Settings Management
-    $routes->get('settings', [SettingsController::class, 'index']);
-    $routes->get('settings/grouped', [SettingsController::class, 'getGrouped']);
-    $routes->get('settings/payment/midtrans', [SettingsController::class, 'getMidtransSettings']);
-    $routes->put('settings/payment/midtrans', [SettingsController::class, 'updateMidtransSettings']);
-    $routes->put('settings/batch', [SettingsController::class, 'updateBatch']);
-    $routes->post('settings', [SettingsController::class, 'create']);
-    $routes->get('settings/(:segment)', [SettingsController::class, 'show/$1']);
-    $routes->put('settings/(:segment)', [SettingsController::class, 'update/$1']);
-    $routes->delete('settings/(:segment)', [SettingsController::class, 'delete/$1']);
-    $routes->post('settings/(:segment)/upload', [SettingsController::class, 'uploadFile/$1']);
+    // Product API Routes - Accessible to all logged in users (for Stock Opname search)
+    $routes->get('products/api/search', [ProductController::class, 'apiSearch']);
 
-    // Midtrans Configuration
-    $routes->post('midtrans/test-connection', [MidtransConfigController::class, 'testConnection']);
-    $routes->get('midtrans/dashboard-info', [MidtransConfigController::class, 'getDashboardInfo']);
-    $routes->post('midtrans/validate', [MidtransConfigController::class, 'validateCredentials']);
-    $routes->get('midtrans/payment-methods', [MidtransConfigController::class, 'getPaymentMethods']);
+    // Transaction Routes - Admin Only
+    $routes->group('transactions', ['filter' => 'permission:transactions.manage'], static function (RouteCollection $routes) {
+        $routes->get('', [TransactionController::class, 'index']);
+        $routes->get('create', [TransactionController::class, 'create']);
+        $routes->post('store', [TransactionController::class, 'store']);
+        $routes->get('delete/(:num)', [TransactionController::class, 'delete/$1']);
 
-    // Profile Management
-    $routes->group('profile', ['namespace' => 'App\Controllers\Admin'], static function (RouteCollection $routes) {
-        $routes->get('', 'ProfileController::index');
-        $routes->post('update', 'ProfileController::update');
-        $routes->post('update-email', 'ProfileController::updateEmail');
-        $routes->post('update-password', 'ProfileController::updatePassword');
+        // Import routes
+        $routes->get('import', [TransactionController::class, 'import']);
+        $routes->post('import/process', [TransactionController::class, 'processImport']);
+        $routes->get('import-preview', [TransactionController::class, 'importPreview']);
+        $routes->post('import/confirm', [TransactionController::class, 'confirmImport']);
+        $routes->get('import/template', [TransactionController::class, 'downloadTemplate']);
+    });
+
+    // Location Routes - Admin Only
+    $routes->group('admin/location', ['filter' => 'permission:locations.manage'], static function (RouteCollection $routes) {
+        $routes->get('', [LocationController::class, 'index']);
+        $routes->get('create', [LocationController::class, 'create']);
+        $routes->post('store', [LocationController::class, 'store']);
+        $routes->get('edit/(:num)', [LocationController::class, 'edit/$1']);
+        $routes->post('update/(:num)', [LocationController::class, 'update/$1']);
+        $routes->post('delete/(:num)', [LocationController::class, 'delete/$1']);
+
+        // Import routes
+        $routes->get('import', [LocationController::class, 'import']);
+        $routes->post('process-import', [LocationController::class, 'processImport']);
+        $routes->get('download-template', [LocationController::class, 'downloadTemplate']);
+
+        // Admin only API routes
+        $routes->post('getData', [LocationController::class, 'getData']);
+        $routes->get('export', [LocationController::class, 'export']);
+    });
+
+    // Location API Routes - Accessible to all logged in users (for Stock Opname form)
+    $routes->group('admin/location', static function (RouteCollection $routes) {
+        $routes->get('api/list', [LocationController::class, 'apiList']);
+        $routes->get('api/search', [LocationController::class, 'apiSearch']);
+        $routes->get('getOptions', [LocationController::class, 'getOptions']);
+        $routes->get('getSOStatus', [LocationController::class, 'getSOStatus']);
+        $routes->get('getSOStatus/(:num)', [LocationController::class, 'getSOStatus/$1']);
+    });
+
+    // User Management Routes - Admin Only
+    $routes->group('admin/user', ['filter' => 'permission:users.manage'], static function (RouteCollection $routes) {
+        $routes->get('', [UserController::class, 'index']);
+        $routes->get('create', [UserController::class, 'create']);
+        $routes->post('store', [UserController::class, 'store']);
+        $routes->get('edit/(:num)', [UserController::class, 'edit/$1']);
+        $routes->post('update/(:num)', [UserController::class, 'update/$1']);
+        $routes->post('delete/(:num)', [UserController::class, 'delete/$1']);
+        $routes->post('toggle-active/(:num)', [UserController::class, 'toggleActive/$1']);
+        $routes->post('reset-password/(:num)', [UserController::class, 'resetPassword/$1']);
+        $routes->post('getData', [UserController::class, 'getData']);
     });
 });
-
-// API Routes
-$routes->group('api', static function (RouteCollection $routes) {
-    // Public Settings API
-    $routes->get('settings/public', [SettingsApiController::class, 'getPublicSettings']);
-    $routes->get('settings/app-info', [SettingsApiController::class, 'getAppInfo']);
-    $routes->get('settings/midtrans-config', [SettingsApiController::class, 'getMidtransConfig']);
-});
-
-service('auth')->routes($routes);

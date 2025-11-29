@@ -1,0 +1,30 @@
+<?php
+
+namespace App\Database\Migrations;
+
+use CodeIgniter\Database\Migration;
+
+class AddOriginalBaselineToStockOpnameItems extends Migration
+{
+    public function up()
+    {
+        // Add original_baseline_stock column to store the baseline at session creation
+        $this->forge->addColumn('stock_opname_items', [
+            'original_baseline_stock' => [
+                'type' => 'DECIMAL',
+                'constraint' => '15,2',
+                'default' => 0,
+                'after' => 'baseline_stock',
+                'comment' => 'Original baseline stock when session was created (for real-time calculation)'
+            ]
+        ]);
+
+        // Copy existing baseline_stock to original_baseline_stock
+        $this->db->query("UPDATE stock_opname_items SET original_baseline_stock = baseline_stock");
+    }
+
+    public function down()
+    {
+        $this->forge->dropColumn('stock_opname_items', 'original_baseline_stock');
+    }
+}

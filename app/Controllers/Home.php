@@ -2,61 +2,39 @@
 
 namespace App\Controllers;
 
-use App\Models\CampaignModel;
-use App\Models\CategoryModel;
-use App\Models\DonationModel;
+use App\Models\ProductModel;
+use App\Models\StockOpnameSessionModel;
+use App\Models\TransactionModel;
 
 class Home extends BaseController
 {
-    protected $campaignModel;
-    protected $categoryModel;
-    protected $donationModel;
+    protected $productModel;
+    protected $sessionModel;
+    protected $transactionModel;
 
     public function __construct()
     {
-        $this->campaignModel = new CampaignModel();
-        $this->categoryModel = new CategoryModel();
-        $this->donationModel = new DonationModel();
+        $this->productModel = new ProductModel();
+        $this->sessionModel = new StockOpnameSessionModel();
+        $this->transactionModel = new TransactionModel();
     }
 
     public function index()
     {
         $data = [
-            'title' => 'Beranda - Platform Donasi Online',
-            'metaDescription' => 'Platform donasi online terpercaya untuk membantu sesama',
-            'featuredCampaigns' => $this->campaignModel->getFeaturedCampaigns(6),
-            'urgentCampaigns' => $this->campaignModel->getUrgentCampaigns(3),
-            'recentCampaigns' => $this->campaignModel->getCampaignsWithCategory(8),
-            'categories' => $this->categoryModel->getActiveCategories(),
-            'totalDonations' => $this->donationModel->getTotalDonations(),
-            'totalDonors' => $this->donationModel->getTotalDonors(),
-            'recentDonors' => $this->donationModel->getRecentDonations(null, 10),
+            'title' => 'Dashboard',
+            'totalProducts' => $this->productModel->countAll(),
+            'totalStock' => $this->productModel->selectSum('stock')->first()['stock'] ?? 0,
+            'openSessions' => $this->sessionModel->where('status', 'open')->countAllResults(),
+            'recentSessions' => $this->sessionModel->orderBy('created_at', 'DESC')->limit(5)->findAll(),
+            'recentTransactions' => $this->transactionModel
+                ->select('transactions.*, products.code, products.name')
+                ->join('products', 'products.id = transactions.product_id')
+                ->orderBy('transaction_date', 'DESC')
+                ->limit(10)
+                ->findAll(),
         ];
 
-        return view('pages/home', $data);
-    }
-
-    public function about()
-    {
-        helper('settings');
-
-        $data = [
-            'title' => 'Tentang Kami - ' . setting('App.general.app_name', 'Platform Donasi'),
-            'metaDescription' => setting('App.about.about_organization', 'Tentang platform donasi online kami'),
-        ];
-
-        return view('pages/about', $data);
-    }
-
-    public function contact()
-    {
-        helper('settings');
-
-        $data = [
-            'title' => 'Hubungi Kami - ' . setting('App.general.app_name', 'Platform Donasi'),
-            'metaDescription' => 'Hubungi kami untuk informasi lebih lanjut',
-        ];
-
-        return view('pages/contact', $data);
+        return view('dashboard', $data);
     }
 }

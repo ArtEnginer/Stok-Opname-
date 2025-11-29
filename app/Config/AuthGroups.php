@@ -23,7 +23,7 @@ class AuthGroups extends ShieldAuthGroups
      * --------------------------------------------------------------------
      * The group that a newly registered user is added to.
      */
-    public string $defaultGroup = 'admin';
+    public string $defaultGroup = 'user';
 
     /**
      * --------------------------------------------------------------------
@@ -41,36 +41,14 @@ class AuthGroups extends ShieldAuthGroups
      * @see https://codeigniter4.github.io/shield/quick_start_guide/using_authorization/#change-available-groups for more info
      */
     public array $groups = [
-        'superadmin' => [
-            'title'       => 'Super Admin',
-            'description' => 'Complete control of the site.',
-        ],
         'admin' => [
-            'title'       => 'Admin',
-            'description' => 'Day to day administrators of the site.',
-        ],
-        'developer' => [
-            'title'       => 'Developer',
-            'description' => 'Site programmers.',
+            'title'       => 'Administrator',
+            'description' => 'Full access to all features including master data management.',
         ],
         'user' => [
             'title'       => 'User',
-            'description' => 'General users of the site. Often customers.',
+            'description' => 'Can only view and edit stock opname items.',
         ],
-        'beta' => [
-            'title'       => 'Beta User',
-            'description' => 'Has access to beta-level features.',
-        ],
-        'gudang1' => [
-            'title'       => 'gudang 1',
-            'description' => 'Pengguna dengan akses ke gudang 1 Jakarta',
-        ],
-        'gudang2' => [
-            'title'       => 'gudang 2',
-            'description' => 'Pengguna dengan akses ke gudang 2 Papua',
-        ],
-
-
     ];
 
     /**
@@ -82,18 +60,30 @@ class AuthGroups extends ShieldAuthGroups
      * If a permission is not listed here it cannot be used.
      */
     public array $permissions = [
-        'admin.access'        => 'Can access the sites admin area',
-        'admin.settings'      => 'Can access the main site settings',
-        'users.manage-admins' => 'Can manage other admins',
-        'users.create'        => 'Can create new non-admin users',
-        'users.edit'          => 'Can edit existing non-admin users',
-        'users.delete'        => 'Can delete existing non-admin users',
-        'beta.access'         => 'Can access beta-level features',
-        // gudang1 DAN 2
-        'gudang1.access'      => 'Can access gudang 1 features',
-        'gudang2.access'      => 'Can access gudang 2 features',
+        // Admin permissions
+        'admin.access'        => 'Can access admin area',
+        'admin.settings'      => 'Can manage site settings',
 
+        // User management
+        'users.manage'        => 'Can manage users',
 
+        // Location management
+        'locations.manage'    => 'Can manage locations/racks',
+
+        // Product management
+        'products.manage'     => 'Can manage products',
+
+        // Stock Opname permissions
+        'stockopname.create'  => 'Can create stock opname sessions',
+        'stockopname.edit'    => 'Can edit stock opname items',
+        'stockopname.close'   => 'Can close/reopen stock opname sessions',
+        'stockopname.delete'  => 'Can delete stock opname sessions',
+
+        // Transaction management
+        'transactions.manage' => 'Can manage transactions',
+
+        // Reports
+        'reports.view'        => 'Can view reports',
     ];
 
     /**
@@ -105,42 +95,22 @@ class AuthGroups extends ShieldAuthGroups
      * This defines group-level permissions.
      */
     public array $matrix = [
-        'superadmin' => [
-            'admin.*',
-            'users.*',
-            'beta.*',
-        ],
         'admin' => [
             'admin.access',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'beta.access',
-        ],
-        'developer' => [
-            'admin.access',
             'admin.settings',
-            'users.create',
-            'users.edit',
-            'beta.access',
+            'users.manage',
+            'locations.manage',
+            'products.manage',
+            'stockopname.create',
+            'stockopname.edit',
+            'stockopname.close',
+            'stockopname.delete',
+            'transactions.manage',
+            'reports.view',
         ],
-        'user' => [],
-        'beta' => [
-            'beta.access',
-        ],
-        'gudang1' => [
-            'admin.access',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'beta.access',
-        ],
-        'gudang2' => [
-            'admin.access',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'beta.access',
+        'user' => [
+            'stockopname.edit',
+            'reports.view',
         ],
     ];
 }

@@ -1,0 +1,38 @@
+<?php
+
+namespace App\Database\Migrations;
+
+use CodeIgniter\Database\Migration;
+
+class AddMutationTrackingToItems extends Migration
+{
+    public function up()
+    {
+        // Add mutation tracking columns to stock_opname_items
+        $fields = [
+            'mutation_at_count' => [
+                'type' => 'DECIMAL',
+                'constraint' => '10,2',
+                'default' => 0,
+                'null' => false,
+                'after' => 'difference',
+                'comment' => 'Mutation from session_date to counted_date'
+            ],
+            'mutation_after_count' => [
+                'type' => 'DECIMAL',
+                'constraint' => '10,2',
+                'default' => 0,
+                'null' => false,
+                'after' => 'mutation_at_count',
+                'comment' => 'Mutation from counted_date to now/close'
+            ],
+        ];
+
+        $this->forge->addColumn('stock_opname_items', $fields);
+    }
+
+    public function down()
+    {
+        $this->forge->dropColumn('stock_opname_items', ['mutation_at_count', 'mutation_after_count']);
+    }
+}
