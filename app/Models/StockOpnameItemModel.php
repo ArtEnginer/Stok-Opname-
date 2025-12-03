@@ -79,7 +79,80 @@ class StockOpnameItemModel extends Model
         // Pagination
         $perPage = $filters['per_page'] ?? 50;
 
-        return $this->orderBy('p.code', 'ASC')->paginate($perPage);
+        return $this->orderBy('p.code', 'ASC')->orderBy('l.nama_lokasi', 'ASC')->paginate($perPage);
+    }
+
+    /**
+     * Get items grouped by product with aggregated physical stock from multiple locations
+     */
+    public function getItemsGroupedByProduct($sessionId, $filters = [])
+    {
+        $builder = $this->db->table('stock_opname_items soi');
+
+        $builder->select('
+            p.id as product_id,
+            p.code,
+            p.plu,
+            p.name,
+            p.unit,
+            p.category,
+            p.department,
+            p.buy_price,
+            p.sell_price,
+            MAX(soi.baseline_stock) as baseline_stock,
+            MAX(soi.original_baseline_stock) as original_baseline_stock,
+            SUM(CASE WHEN soi.is_counted = 1 THEN soi.physical_stock ELSE 0 END) as total_physical_stock,
+            SUM(CASE WHEN soi.is_counted = 1 THEN soi.physical_stock ELSE 0 END) - MAX(soi.baseline_stock) as difference,
+            MAX(CASE WHEN soi.is_counted = 1 THEN 1 ELSE 0 END) as is_counted,
+            COUNT(CASE WHEN soi.is_counted = 1 THEN 1 END) as counted_locations_count,
+            GROUP_CONCAT(DISTINCT CASE WHEN soi.is_counted = 1 THEN l.nama_lokasi END SEPARATOR ", ") as counted_locations,
+            MAX(soi.counted_date) as counted_date,
+            MAX(soi.counted_by) as counted_by
+        ')
+            ->join('products p', 'p.id = soi.product_id', 'left')
+            ->join('locations l', 'l.id = soi.location_id', 'left')
+            ->where('soi.session_id', $sessionId)
+            ->groupBy('p.id, p.code, p.plu, p.name, p.unit, p.category, p.department, p.buy_price, p.sell_price');
+
+        if (!empty($filters['search'])) {
+            $search = trim($filters['search']);
+            $builder->groupStart()
+                ->like('p.code', $search)
+                ->orLike('p.plu', $search)
+                ->orLike('p.name', $search)
+                ->groupEnd();
+        }
+
+        if (!empty($filters['category'])) {
+            $builder->where('p.category', $filters['category']);
+        }
+
+        if (!empty($filters['department'])) {
+            $builder->where('p.department', $filters['department']);
+        }
+
+        if (isset($filters['is_counted']) && $filters['is_counted'] !== '') {
+            $builder->having('is_counted', $filters['is_counted']);
+        }
+
+        $builder->orderBy('p.code', 'ASC');
+
+        // Get total for pagination
+        $total = $builder->countAllResults(false);
+
+        // Pagination
+        $perPage = $filters['per_page'] ?? 50;
+        $page = $filters['page'] ?? 1;
+        $offset = ($page - 1) * $perPage;
+
+        $items = $builder->limit($perPage, $offset)->get()->getResultArray();
+
+        return [
+            'items' => $items,
+            'total' => $total,
+            'per_page' => $perPage,
+            'current_page' => $page
+        ];
     }
 
     /**

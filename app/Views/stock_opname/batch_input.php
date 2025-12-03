@@ -168,13 +168,14 @@
     // Search item
     async function searchItem() {
         const keyword = document.getElementById('searchInput').value.trim();
+        const locationId = document.getElementById('batch_location_id').value;
 
         if (!keyword) {
             return;
         }
 
         try {
-            const response = await fetch(`<?= base_url('/stock-opname/') ?>${sessionId}/search-item?q=${encodeURIComponent(keyword)}&uncounted_only=1`);
+            const response = await fetch(`<?= base_url('/stock-opname/') ?>${sessionId}/search-item?q=${encodeURIComponent(keyword)}&location_id=${locationId}`);
             const result = await response.json();
 
             console.log('Search result:', result); // Debug log
@@ -182,18 +183,7 @@
             if (result.success && result.items && result.items.length > 0) {
                 displaySearchResults(result.items);
             } else {
-                // If no uncounted items found, try searching all items
-                const responseAll = await fetch(`<?= base_url('/stock-opname/') ?>${sessionId}/search-item?q=${encodeURIComponent(keyword)}&uncounted_only=0`);
-                const resultAll = await responseAll.json();
-
-                console.log('Search all result:', resultAll); // Debug log
-
-                if (resultAll.success && resultAll.items && resultAll.items.length > 0) {
-                    // Show results with already counted indicator
-                    displaySearchResults(resultAll.items, true);
-                } else {
-                    showNoResults();
-                }
+                showNoResults();
             }
         } catch (error) {
             console.error('Search error:', error);
@@ -208,17 +198,25 @@
 
         items.forEach(item => {
             const div = document.createElement('div');
-            const isCounted = item.is_counted == 1;
+            const isCountedAtLocation = item.is_counted_at_current_location;
+            const countedLocationsCount = item.counted_locations_count || 0;
 
-            div.className = 'p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-200 flex justify-between items-center' + (isCounted ? ' bg-yellow-50' : '');
+            div.className = 'p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-200 flex justify-between items-center';
 
-            if (!isCounted) {
-                div.onclick = () => addItem(item);
+            // Jika sudah counted di location ini, highlight
+            if (isCountedAtLocation) {
+                div.className += ' bg-yellow-50';
             }
 
+            // Tetap bisa add item meskipun sudah counted di lokasi lain
+            div.onclick = () => addItem(item);
+
             let statusBadge = '';
-            if (showCountedStatus && isCounted) {
-                statusBadge = '<span class="px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded ml-2">Already Counted</span>';
+            if (isCountedAtLocation) {
+                statusBadge = '<span class="px-2 py-1 text-xs bg-yellow-200 text-yellow-800 rounded ml-2">Sudah dihitung di lokasi ini</span>';
+            } else if (countedLocationsCount > 0) {
+                let locationInfo = item.counted_locations.map(loc => loc.nama_lokasi).join(', ');
+                statusBadge = `<span class="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded ml-2" title="${locationInfo}">Sudah dihitung di ${countedLocationsCount} lokasi lain</span>`;
             }
 
             div.innerHTML = `
@@ -227,9 +225,9 @@
                     <div class="text-sm text-gray-600">${escapeHtml(item.name)}</div>
                     <div class="text-xs text-gray-500">${escapeHtml(item.category || '-')} | Baseline: ${parseFloat(item.baseline_stock).toFixed(2)}</div>
                 </div>
-                ${!isCounted ? `<button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+                <button class="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
                     <i class="fas fa-plus"></i> Add
-                </button>` : '<span class="text-xs text-gray-500">Cannot add</span>'}
+                </button>
             `;
 
             resultsDiv.appendChild(div);

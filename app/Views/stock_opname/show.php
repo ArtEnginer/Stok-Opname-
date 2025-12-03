@@ -59,14 +59,17 @@
     <div class="bg-white p-4 rounded-lg shadow">
         <div class="text-sm text-gray-600">Total Items</div>
         <div class="text-2xl font-bold text-gray-900"><?= number_format($summary['total_items']) ?></div>
+        <div class="text-xs text-gray-500 mt-1">termasuk multiple locations</div>
     </div>
     <div class="bg-white p-4 rounded-lg shadow">
         <div class="text-sm text-gray-600">Counted</div>
         <div class="text-2xl font-bold text-green-600"><?= number_format($summary['counted_items']) ?></div>
+        <div class="text-xs text-gray-500 mt-1">entries yang sudah dihitung</div>
     </div>
     <div class="bg-white p-4 rounded-lg shadow">
         <div class="text-sm text-gray-600">Not Counted</div>
         <div class="text-2xl font-bold text-orange-600"><?= number_format($summary['uncounted_items']) ?></div>
+        <div class="text-xs text-gray-500 mt-1">entries belum dihitung</div>
     </div>
     <div class="bg-white p-4 rounded-lg shadow">
         <div class="text-sm text-gray-600">Total Variance</div>
@@ -316,10 +319,168 @@ $totalPendingLocations = $totalUncountedLocations + $totalLocationsWithoutItems;
             </a>
         </div>
     </form>
+
+    <!-- Info Badge untuk Multiple Location -->
+    <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+        <div class="flex items-start gap-2">
+            <i class="fas fa-info-circle text-blue-600 mt-0.5"></i>
+            <div class="text-blue-800">
+                <strong>Multiple Location Support:</strong> Item yang sama bisa dihitung di beberapa lokasi berbeda.
+                Setiap baris = qty di lokasi tertentu. Total physical stock = SUM dari semua lokasi.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Grouped by Product (untuk products di multiple locations) -->
+<?php
+// Buat summary per product dari items yang counted
+$productSummary = [];
+foreach ($items as $item) {
+    if ($item['is_counted']) {
+        $pid = $item['product_id'];
+        if (!isset($productSummary[$pid])) {
+            $productSummary[$pid] = [
+                'code' => $item['code'],
+                'plu' => $item['plu'],
+                'name' => $item['name'],
+                'category' => $item['category'],
+                'baseline_stock' => $item['baseline_stock'],
+                'total_physical' => 0,
+                'locations' => [],
+                'location_details' => []
+            ];
+        }
+        $productSummary[$pid]['total_physical'] += (float)$item['physical_stock'];
+        if ($item['location_id']) {
+            $locName = $item['nama_lokasi'] ?? ($item['location'] ?? 'Unknown');
+            $productSummary[$pid]['location_details'][] = [
+                'name' => $locName,
+                'qty' => $item['physical_stock']
+            ];
+            if (!in_array($item['location_id'], $productSummary[$pid]['locations'])) {
+                $productSummary[$pid]['locations'][] = $item['location_id'];
+            }
+        }
+    }
+}
+// Filter hanya yang ada di multiple locations
+$multiLocationSummary = array_filter($productSummary, function ($p) {
+    return count($p['locations']) > 1;
+});
+?>
+
+<?php if (count($multiLocationSummary) > 0): ?>
+    <div class="bg-white rounded-lg shadow mb-4">
+        <div class="p-4 border-b border-gray-200">
+            <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <i class="fas fa-layer-group text-blue-600"></i>
+                Summary: Products di Multiple Locations
+                <span class="ml-2 px-2 py-1 text-sm bg-blue-100 text-blue-800 rounded-full"><?= count($multiLocationSummary) ?> products</span>
+            </h4>
+            <p class="text-sm text-gray-600 mt-1">Berikut produk yang dihitung di lebih dari 1 lokasi dengan total physical stock</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Jumlah Lokasi</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total Physical</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Baseline</th>
+                        <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Difference</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Detail Lokasi</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <?php foreach ($multiLocationSummary as $product):
+                        $diff = $product['total_physical'] - $product['baseline_stock'];
+                    ?>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900"><?= esc($product['code']) ?></td>
+                            <td class="px-4 py-3 text-sm text-gray-900">
+                                <?= esc($product['name']) ?>
+                                <?php if ($product['category']): ?>
+                                    <span class="text-xs text-gray-500">(<?= esc($product['category']) ?>)</span>
+                                <?php endif; ?>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-center">
+                                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                                    <?= count($product['locations']) ?> lokasi
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right font-bold text-blue-700">
+                                <?= number_format($product['total_physical'], 2) ?>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right text-gray-700">
+                                <?= number_format($product['baseline_stock'], 2) ?>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-right">
+                                <span class="<?= $diff > 0 ? 'text-green-600 font-semibold' : ($diff < 0 ? 'text-red-600 font-semibold' : 'text-gray-500') ?>">
+                                    <?= $diff > 0 ? '+' : '' ?><?= number_format($diff, 2) ?>
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-sm text-gray-600">
+                                <?php foreach ($product['location_details'] as $loc): ?>
+                                    <div class="flex justify-between items-center py-0.5">
+                                        <span class="text-xs"><?= esc($loc['name']) ?>:</span>
+                                        <span class="text-xs font-semibold ml-2"><?= number_format($loc['qty'], 2) ?></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+<?php endif; ?>
+
+<!-- Location Grouping Info -->
+<?php
+// Hitung berapa products yang ada di multiple locations
+$multiLocationProducts = [];
+foreach ($items as $item) {
+    if ($item['is_counted']) {
+        if (!isset($multiLocationProducts[$item['product_id']])) {
+            $multiLocationProducts[$item['product_id']] = [
+                'code' => $item['code'],
+                'name' => $item['name'],
+                'locations' => []
+            ];
+        }
+        if ($item['location_id'] && !in_array($item['location_id'], $multiLocationProducts[$item['product_id']]['locations'])) {
+            $multiLocationProducts[$item['product_id']]['locations'][] = $item['location_id'];
+        }
+    }
+}
+$multiLocationCount = count(array_filter($multiLocationProducts, function ($p) {
+    return count($p['locations']) > 1;
+}));
+?>
+<?php if ($multiLocationCount > 0): ?>
+    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+        <div class="flex items-center gap-2">
+            <i class="fas fa-map-marked-alt text-green-600"></i>
+            <span class="text-green-800 font-semibold">
+                <?= $multiLocationCount ?> produk dihitung di multiple locations
+            </span>
+        </div>
+    </div>
+<?php endif; ?>
+</form>
 </div>
 
 <!-- Items Table -->
 <div class="bg-white shadow-md rounded-lg overflow-hidden">
+    <div class="p-4 border-b border-gray-200 bg-gray-50">
+        <h4 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <i class="fas fa-list text-gray-600"></i>
+            Detail Items per Location
+        </h4>
+        <p class="text-sm text-gray-600 mt-1">Menampilkan setiap item per lokasi. Jika item yang sama ada di beberapa lokasi, akan muncul di baris berbeda.</p>
+    </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -327,7 +488,10 @@ $totalPendingLocations = $totalUncountedLocations + $totalLocationsWithoutItems;
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">PLU</th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase" title="Location where this item was counted">
+                        Location
+                        <i class="fas fa-question-circle text-gray-400 ml-1" title="Item bisa ada di multiple locations"></i>
+                    </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Original baseline when session created">
                         Original<br>Baseline
                     </th>
@@ -337,7 +501,9 @@ $totalPendingLocations = $totalUncountedLocations + $totalLocationsWithoutItems;
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Real-time baseline (Original + Mutation)">
                         Real-Time<br>Baseline
                     </th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Physical</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Physical stock at this specific location">
+                        Physical<br>(Lokasi Ini)
+                    </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Difference before adjustment">Difference</th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Difference after mutation adjustment">Diff After Adj</th>
                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Counted Date</th>
@@ -350,9 +516,42 @@ $totalPendingLocations = $totalUncountedLocations + $totalLocationsWithoutItems;
                         <td colspan="12" class="px-4 py-4 text-center text-gray-500">No items found</td>
                     </tr>
                 <?php else: ?>
-                    <?php foreach ($items as $item): ?>
-                        <tr class="hover:bg-gray-50" id="row-<?= $item['id'] ?>">
-                            <td class="px-4 py-3 text-sm font-medium text-gray-900"><?= esc($item['code']) ?></td>
+                    <?php
+                    // Track untuk highlighting multiple location products dan subtotal
+                    $prevProductId = null;
+                    $productRows = [];
+
+                    // Group items by product untuk tracking
+                    foreach ($items as $item) {
+                        $pid = $item['product_id'];
+                        if (!isset($productRows[$pid])) {
+                            $productRows[$pid] = [];
+                        }
+                        $productRows[$pid][] = $item;
+                    }
+
+                    foreach ($items as $index => $item):
+                        // Cek apakah product ini counted di multiple locations
+                        $productLocations = array_filter($items, function ($i) use ($item) {
+                            return $i['product_id'] == $item['product_id'] && $i['is_counted'] && $i['location_id'];
+                        });
+                        $hasMultipleLocations = count($productLocations) > 1;
+                        $isFirstEntry = $prevProductId != $item['product_id'];
+
+                        // Cek apakah ini entry terakhir untuk product ini
+                        $isLastEntry = !isset($items[$index + 1]) || $items[$index + 1]['product_id'] != $item['product_id'];
+
+                        $prevProductId = $item['product_id'];
+                    ?>
+                        <tr class="hover:bg-gray-50 <?= $hasMultipleLocations ? 'bg-blue-50' : '' ?>" id="row-<?= $item['id'] ?>">
+                            <td class="px-4 py-3 text-sm font-medium text-gray-900">
+                                <?= esc($item['code']) ?>
+                                <?php if ($hasMultipleLocations && $isFirstEntry): ?>
+                                    <span class="ml-1 px-1.5 py-0.5 text-xs bg-blue-200 text-blue-800 rounded" title="Product ini ada di <?= count($productLocations) ?> lokasi">
+                                        <i class="fas fa-layer-group"></i> <?= count($productLocations) ?>
+                                    </span>
+                                <?php endif; ?>
+                            </td>
                             <td class="px-4 py-3 text-sm text-gray-600"><?= esc($item['plu'] ?? '-') ?></td>
                             <td class="px-4 py-3 text-sm text-gray-900">
                                 <?= esc($item['name']) ?>
@@ -468,6 +667,66 @@ $totalPendingLocations = $totalUncountedLocations + $totalLocationsWithoutItems;
                                 <?php endif; ?>
                             </td>
                         </tr>
+
+                        <?php
+                        // Jika ini last entry dari product yang ada di multiple locations, tampilkan subtotal row
+                        if ($isLastEntry && $hasMultipleLocations):
+                            // Calculate subtotal untuk product ini
+                            $subtotalPhysical = 0;
+                            $subtotalDifference = 0;
+                            $subtotalDiffAfterAdj = 0;
+                            $locationCount = 0;
+
+                            foreach ($productRows[$item['product_id']] as $row) {
+                                if ($row['is_counted']) {
+                                    $subtotalPhysical += (float)$row['physical_stock'];
+                                    $subtotalDifference += (float)$row['difference'];
+                                    $adjustedPhys = $row['adjusted_physical'] ?? $row['physical_stock'];
+                                    $diffAfter = $adjustedPhys - $row['baseline_stock'];
+                                    $subtotalDiffAfterAdj += $diffAfter;
+                                    $locationCount++;
+                                }
+                            }
+                        ?>
+                            <!-- Subtotal Row untuk Multiple Location Product -->
+                            <tr class="bg-gradient-to-r from-blue-100 to-blue-50 border-t-2 border-b-2 border-blue-300 font-bold">
+                                <td colspan="3" class="px-4 py-3 text-sm text-gray-900">
+                                    <i class="fas fa-calculator text-blue-600 mr-2"></i>
+                                    <strong>SUBTOTAL - <?= esc($item['code']) ?> (<?= $locationCount ?> lokasi)</strong>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-center text-gray-600">
+                                    <span class="text-xs"><?= $locationCount ?> locations counted</span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right text-gray-700">
+                                    <?= number_format($item['original_baseline_stock'], 2) ?>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right">
+                                    <span class="text-gray-500">-</span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right text-blue-700 font-bold">
+                                    <?= number_format($item['baseline_stock'], 2) ?>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right">
+                                    <span class="text-blue-900 font-bold text-base">
+                                        <?= number_format($subtotalPhysical, 2) ?>
+                                    </span>
+                                    <div class="text-xs text-gray-600 font-normal">Total Physical</div>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right">
+                                    <span class="<?= $subtotalDifference > 0 ? 'text-green-700' : ($subtotalDifference < 0 ? 'text-red-700' : 'text-gray-700') ?> font-bold text-base">
+                                        <?= number_format($subtotalDifference, 2) ?>
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-sm text-right">
+                                    <span class="<?= $subtotalDiffAfterAdj > 0 ? 'text-green-700' : ($subtotalDiffAfterAdj < 0 ? 'text-red-700' : 'text-blue-700') ?> font-bold text-base">
+                                        <?= number_format($subtotalDiffAfterAdj, 2) ?>
+                                    </span>
+                                </td>
+                                <td colspan="2" class="px-4 py-3 text-center text-xs text-gray-600">
+                                    <i class="fas fa-sigma mr-1"></i> Summary
+                                </td>
+                            </tr>
+                        <?php endif; ?>
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>

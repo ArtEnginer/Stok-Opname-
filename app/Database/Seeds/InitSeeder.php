@@ -21,19 +21,6 @@ class InitSeeder extends Seeder
             'password' => "password",
         ])->addGroup('superadmin')->activate();
 
-        PenggunaModel::create([
-            'username' => 'adminjkt',
-            'name' => 'adminjkt',
-        ])->setEmailIdentity([
-            'email' => 'adminjkt@gmail.com',
-            'password' => "password",
-        ])->addGroup('gudang1')->activate();
-        PenggunaModel::create([
-            'username' => 'adminpp',
-            'name' => 'adminpp',
-        ])->setEmailIdentity([
-            'email' => 'adminpp@gmail.com',
-            'password' => "password",
-        ])->addGroup('gudang2')->activate();
+      
     }
 }

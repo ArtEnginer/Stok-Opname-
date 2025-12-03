@@ -402,6 +402,7 @@ class StockOpnameController extends BaseController
 
     /**
      * Search item by code/PLU/name for batch input
+     * Updated: Cari dari products table, lalu cek status counted per location
      */
     public function searchItem($sessionId)
     {
@@ -427,9 +428,9 @@ class StockOpnameController extends BaseController
         }
 
         $keyword = $this->request->getGet('q');
-        $uncountedOnly = $this->request->getGet('uncounted_only') ?? '1'; // Default to uncounted only
+        $currentLocationId = $this->request->getGet('location_id'); // Location yang sedang diinput
 
-        log_message('info', "searchItem: keyword='$keyword', uncountedOnly='$uncountedOnly'");
+        log_message('info', "searchItem: keyword='$keyword', location_id='$currentLocationId'");
 
         if (empty($keyword)) {
             return $this->response->setJSON([
@@ -441,26 +442,74 @@ class StockOpnameController extends BaseController
         // Trim keyword
         $keyword = trim($keyword);
 
-        // Search in stock_opname_items
-        // MySQL LIKE is case-insensitive by default for most collations
-        $builder = $this->db->table('stock_opname_items soi')
-            ->select('soi.id, soi.baseline_stock, soi.original_baseline_stock, soi.physical_stock, soi.is_counted, p.id as product_id, p.code, p.plu, p.name, p.unit, p.category')
-            ->join('products p', 'p.id = soi.product_id')
-            ->where('soi.session_id', $sessionId);
-
-        // Only filter by is_counted if requested
-        if ($uncountedOnly === '1') {
-            $builder->where('soi.is_counted', 0);
-        }
-
-        $builder->groupStart()
+        // Search dari products table untuk mendapatkan semua produk yang match
+        $builder = $this->db->table('products p')
+            ->select('p.id as product_id, p.code, p.plu, p.name, p.unit, p.category')
+            ->groupStart()
             ->like('p.code', $keyword)
             ->orLike('p.plu', $keyword)
             ->orLike('p.name', $keyword)
             ->groupEnd()
             ->limit(20);
 
-        $items = $builder->get()->getResultArray();
+        $products = $builder->get()->getResultArray();
+
+        // Untuk setiap product, cek apakah sudah dihitung di location yang sedang diinput
+        $items = [];
+        foreach ($products as $product) {
+            // Cari base item untuk product ini di session
+            $baseItem = $this->itemModel
+                ->where('session_id', $sessionId)
+                ->where('product_id', $product['product_id'])
+                ->where('is_counted', 0) // Ambil yang uncounted sebagai base
+                ->first();
+
+            if (!$baseItem) {
+                // Jika tidak ada uncounted item, ambil yang pertama (untuk get baseline)
+                $baseItem = $this->itemModel
+                    ->where('session_id', $sessionId)
+                    ->where('product_id', $product['product_id'])
+                    ->first();
+            }
+
+            if (!$baseItem) {
+                continue; // Skip jika product tidak ada di session ini
+            }
+
+            // Cek apakah sudah dihitung di location ini
+            $countedAtLocation = $this->itemModel
+                ->where('session_id', $sessionId)
+                ->where('product_id', $product['product_id'])
+                ->where('location_id', $currentLocationId)
+                ->where('is_counted', 1)
+                ->first();
+
+            // Hitung total locations yang sudah dihitung untuk product ini
+            $countedLocations = $this->db->table('stock_opname_items')
+                ->select('location_id, l.nama_lokasi')
+                ->join('locations l', 'l.id = stock_opname_items.location_id', 'left')
+                ->where('session_id', $sessionId)
+                ->where('product_id', $product['product_id'])
+                ->where('is_counted', 1)
+                ->where('location_id IS NOT NULL')
+                ->get()
+                ->getResultArray();
+
+            $items[] = [
+                'id' => $baseItem['id'], // ID dari base item
+                'product_id' => $product['product_id'],
+                'code' => $product['code'],
+                'plu' => $product['plu'],
+                'name' => $product['name'],
+                'unit' => $product['unit'],
+                'category' => $product['category'],
+                'baseline_stock' => $baseItem['baseline_stock'],
+                'original_baseline_stock' => $baseItem['original_baseline_stock'],
+                'is_counted_at_current_location' => $countedAtLocation ? true : false,
+                'counted_locations' => $countedLocations,
+                'counted_locations_count' => count($countedLocations)
+            ];
+        }
 
         log_message('info', "searchItem: Found " . count($items) . " items");
 
@@ -474,6 +523,7 @@ class StockOpnameController extends BaseController
 
     /**
      * Save batch input
+     * Updated: Buat entry baru jika product sudah counted di lokasi lain
      */
     public function saveBatchInput($sessionId)
     {
@@ -520,6 +570,14 @@ class StockOpnameController extends BaseController
                 continue;
             }
 
+            // Cek apakah product ini sudah dihitung di location yang sama
+            $existingEntry = $this->itemModel
+                ->where('session_id', $sessionId)
+                ->where('product_id', $item['product_id'])
+                ->where('location_id', $locationId)
+                ->where('is_counted', 1)
+                ->first();
+
             // Calculate mutation dari session_date ke counted_date
             $mutationAtCount = $this->transactionModel->getMutation(
                 $item['product_id'],
@@ -531,8 +589,7 @@ class StockOpnameController extends BaseController
             $adjustedBaseline = (float)$item['original_baseline_stock'] + $mutationAtCount;
             $difference = (float)$physicalStock - $adjustedBaseline;
 
-            // Update item dengan baseline real-time dan mutation tracking
-            $updateData = [
+            $data = [
                 'baseline_stock' => $adjustedBaseline,
                 'physical_stock' => $physicalStock,
                 'difference' => $difference,
@@ -544,16 +601,55 @@ class StockOpnameController extends BaseController
                 'location_id' => $locationId,
             ];
 
-            if ($this->itemModel->update($itemId, $updateData)) {
-                $successCount++;
-                if ($mutationAtCount != 0) {
-                    $mutations[] = [
-                        'item_id' => $itemId,
-                        'mutation' => $mutationAtCount
-                    ];
+            if ($existingEntry) {
+                // Jika sudah ada entry di location ini, update saja
+                if ($this->itemModel->update($existingEntry['id'], $data)) {
+                    $successCount++;
+                    if ($mutationAtCount != 0) {
+                        $mutations[] = [
+                            'item_id' => $existingEntry['id'],
+                            'mutation' => $mutationAtCount
+                        ];
+                    }
+                } else {
+                    $errorCount++;
                 }
             } else {
-                $errorCount++;
+                // Jika belum ada, cek apakah item base (uncounted) atau sudah counted di lokasi lain
+                if ($item['is_counted'] == 0 && ($item['location_id'] === null || $item['location_id'] == $locationId)) {
+                    // Item base yang belum counted, update langsung
+                    if ($this->itemModel->update($itemId, $data)) {
+                        $successCount++;
+                        if ($mutationAtCount != 0) {
+                            $mutations[] = [
+                                'item_id' => $itemId,
+                                'mutation' => $mutationAtCount
+                            ];
+                        }
+                    } else {
+                        $errorCount++;
+                    }
+                } else {
+                    // Item sudah counted di lokasi lain, buat entry baru
+                    $newData = array_merge($data, [
+                        'session_id' => $sessionId,
+                        'product_id' => $item['product_id'],
+                        'original_baseline_stock' => $item['original_baseline_stock'],
+                    ]);
+
+                    $newId = $this->itemModel->insert($newData);
+                    if ($newId) {
+                        $successCount++;
+                        if ($mutationAtCount != 0) {
+                            $mutations[] = [
+                                'item_id' => $newId,
+                                'mutation' => $mutationAtCount
+                            ];
+                        }
+                    } else {
+                        $errorCount++;
+                    }
+                }
             }
         }
 
@@ -568,6 +664,7 @@ class StockOpnameController extends BaseController
 
     /**
      * Close SO session and update system stock
+     * Updated: Handle multiple location entries dengan aggregate physical stock
      */
     public function close($id)
     {
@@ -585,45 +682,59 @@ class StockOpnameController extends BaseController
         $db = \Config\Database::connect();
         $db->transStart();
 
-        // Get all counted items
-        $countedItems = $this->itemModel->getCountedItems($id);
-
         // Get close date (today)
         $closeDate = date('Y-m-d');
 
-        // Update system stock for counted items with mutation adjustment
-        foreach ($countedItems as $item) {
+        // Get counted items grouped by product dengan sum physical stock dari multiple locations
+        $builder = $db->table('stock_opname_items soi');
+        $countedByProduct = $builder->select('
+            soi.product_id,
+            MAX(soi.original_baseline_stock) as original_baseline_stock,
+            SUM(soi.physical_stock) as total_physical_stock,
+            MAX(soi.counted_date) as latest_counted_date
+        ')
+            ->where('soi.session_id', $id)
+            ->where('soi.is_counted', 1)
+            ->groupBy('soi.product_id')
+            ->get()
+            ->getResultArray();
+
+        // Update system stock for each product
+        foreach ($countedByProduct as $item) {
             // Calculate mutation from counted_date to close_date untuk physical
             $mutationAfterCount = $this->transactionModel->getMutation(
                 $item['product_id'],
-                $item['counted_date'] ?: $session['session_date'], // If no counted_date, use session_date
+                $item['latest_counted_date'] ?: $session['session_date'],
                 $closeDate
             );
 
-            // Calculate baseline dari session_date ke close_date (real-time penuh dari original)
+            // Calculate baseline dari session_date ke close_date
             $baselineMutation = $this->transactionModel->getMutation(
                 $item['product_id'],
                 $session['session_date'],
                 $closeDate
             );
 
-            // Adjusted physical stock = physical_stock (saat dihitung) + mutation (dari tgl hitung ke tgl tutup)
-            $adjustedPhysicalStock = (float)$item['physical_stock'] + $mutationAfterCount;
+            // Adjusted physical stock = total physical dari semua locations + mutation setelah counted
+            $adjustedPhysicalStock = (float)$item['total_physical_stock'] + $mutationAfterCount;
 
-            // Adjusted baseline stock = original_baseline + mutation (dari tgl SO ke tgl tutup)
+            // Adjusted baseline stock = original_baseline + mutation
             $adjustedBaselineStock = (float)$item['original_baseline_stock'] + $baselineMutation;
 
             // Recalculate difference with adjusted values
             $adjustedDifference = $adjustedPhysicalStock - $adjustedBaselineStock;
 
-            // Update stock_opname_items with adjusted values
-            $this->itemModel->update($item['id'], [
-                'physical_stock' => $adjustedPhysicalStock,
-                'baseline_stock' => $adjustedBaselineStock,
-                'difference' => $adjustedDifference
-            ]);
+            // Update all items untuk product ini dengan adjusted values
+            $db->table('stock_opname_items')
+                ->where('session_id', $id)
+                ->where('product_id', $item['product_id'])
+                ->where('is_counted', 1)
+                ->update([
+                    'mutation_after_count' => $mutationAfterCount,
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
 
-            // Update product stock with adjusted physical stock
+            // Update product stock dengan total dari semua locations
             $this->productModel->update($item['product_id'], [
                 'stock' => $adjustedPhysicalStock
             ]);
@@ -641,7 +752,7 @@ class StockOpnameController extends BaseController
             return redirect()->back()->with('error', 'Failed to close session');
         }
 
-        return redirect()->to('/stock-opname/' . $id)->with('success', 'Session closed successfully. Baseline, physical stock, and system stock updated with mutation adjustments.');
+        return redirect()->to('/stock-opname/' . $id)->with('success', 'Session closed successfully. System stock updated with aggregated physical stock from all locations.');
     }
 
     /**
@@ -1069,7 +1180,7 @@ class StockOpnameController extends BaseController
     }
 
     /**
-     * Export Final Report to Excel
+     * Export Final Report to Excel (Grouped by Product with Locations)
      */
     public function exportReport($sessionId)
     {
@@ -1092,10 +1203,11 @@ class StockOpnameController extends BaseController
         $baselineFreezeDate = isset($session['baseline_freeze_date']) ? $session['baseline_freeze_date'] : null;
         $referenceDate = $isBaselineFrozen && $baselineFreezeDate ? $baselineFreezeDate : date('Y-m-d');
 
-        // Get all items
+        // Get all items with location info
         $builder = $this->db->table('stock_opname_items soi')
-            ->select('soi.*, p.code, p.plu, p.name, p.unit, p.category, p.department, p.buy_price')
+            ->select('soi.*, p.code, p.plu, p.name, p.unit, p.category, p.department, p.buy_price, l.kode_lokasi, l.nama_lokasi')
             ->join('products p', 'p.id = soi.product_id')
+            ->join('locations l', 'l.id = soi.location_id', 'left')
             ->where('soi.session_id', $sessionId);
 
         if (!empty($filters['category'])) {
@@ -1110,9 +1222,48 @@ class StockOpnameController extends BaseController
 
         $builder->orderBy('p.department', 'ASC')
             ->orderBy('p.category', 'ASC')
-            ->orderBy('p.code', 'ASC');
+            ->orderBy('p.code', 'ASC')
+            ->orderBy('l.nama_lokasi', 'ASC');
 
-        $items = $builder->get()->getResultArray();
+        $allItems = $builder->get()->getResultArray();
+
+        // Group items by product
+        $groupedItems = [];
+        foreach ($allItems as $item) {
+            $productId = $item['product_id'];
+
+            if (!isset($groupedItems[$productId])) {
+                $groupedItems[$productId] = [
+                    'product_id' => $productId,
+                    'code' => $item['code'],
+                    'plu' => $item['plu'],
+                    'name' => $item['name'],
+                    'unit' => $item['unit'],
+                    'category' => $item['category'],
+                    'department' => $item['department'],
+                    'buy_price' => $item['buy_price'],
+                    'original_baseline_stock' => $item['original_baseline_stock'],
+                    'total_physical_stock' => 0,
+                    'locations' => [],
+                    'is_counted' => false,
+                    'counted_locations' => 0
+                ];
+            }
+
+            if ($item['is_counted']) {
+                $groupedItems[$productId]['is_counted'] = true;
+                $groupedItems[$productId]['total_physical_stock'] += (float)$item['physical_stock'];
+                $groupedItems[$productId]['counted_locations']++;
+
+                $locationName = $item['kode_lokasi'] ? $item['kode_lokasi'] . ' - ' . $item['nama_lokasi'] : ($item['location'] ?? 'Unknown');
+                $groupedItems[$productId]['locations'][] = [
+                    'name' => $locationName,
+                    'qty' => (float)$item['physical_stock']
+                ];
+            }
+        }
+
+        $items = array_values($groupedItems);
 
         // Create Excel using PhpSpreadsheet
         $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -1127,11 +1278,11 @@ class StockOpnameController extends BaseController
         $sheet->setCellValue('A5', 'Dicetak: ' . date('d/m/Y H:i:s'));
 
         // Merge header cells
-        $sheet->mergeCells('A1:K1');
-        $sheet->mergeCells('A2:K2');
-        $sheet->mergeCells('A3:K3');
-        $sheet->mergeCells('A4:K4');
-        $sheet->mergeCells('A5:K5');
+        $sheet->mergeCells('A1:L1');
+        $sheet->mergeCells('A2:L2');
+        $sheet->mergeCells('A3:L3');
+        $sheet->mergeCells('A4:L4');
+        $sheet->mergeCells('A5:L5');
 
         // Style header info
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
@@ -1147,9 +1298,10 @@ class StockOpnameController extends BaseController
             'F7' => 'Kategori',
             'G7' => 'Harga Beli',
             'H7' => 'Stok Sistem',
-            'I7' => 'Stok Fisik',
+            'I7' => 'Stok Fisik (Total)',
             'J7' => 'Selisih',
-            'K7' => 'Nominal'
+            'K7' => 'Nominal',
+            'L7' => 'Lokasi'
         ];
 
         foreach ($headers as $cell => $value) {
@@ -1160,10 +1312,10 @@ class StockOpnameController extends BaseController
         $headerStyle = [
             'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
             'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4472C4']],
-            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
             'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
         ];
-        $sheet->getStyle('A7:K7')->applyFromArray($headerStyle);
+        $sheet->getStyle('A7:L7')->applyFromArray($headerStyle);
 
         // Data rows
         $row = 8;
@@ -1175,7 +1327,7 @@ class StockOpnameController extends BaseController
         $uncountedItems = 0;
 
         foreach ($items as $item) {
-            // Calculate real-time data
+            // Calculate real-time system stock with mutation
             $mutation = $this->transactionModel->getMutation(
                 $item['product_id'],
                 $session['session_date'],
@@ -1186,22 +1338,14 @@ class StockOpnameController extends BaseController
             $physicalStock = null;
             $variance = null;
             $varianceValue = null;
+            $locationsText = '';
 
             if ($item['is_counted']) {
                 $countedItems++;
-                if ($item['counted_date']) {
-                    $mutationAfterCount = $this->transactionModel->getMutation(
-                        $item['product_id'],
-                        $item['counted_date'],
-                        $referenceDate
-                    );
-                    $adjustedPhysical = (float)$item['physical_stock'] + $mutationAfterCount;
-                } else {
-                    $adjustedPhysical = (float)$item['physical_stock'];
-                }
 
-                $physicalStock = $adjustedPhysical;
-                $variance = $adjustedPhysical - $systemStock;
+                // Use total physical stock from all locations
+                $physicalStock = $item['total_physical_stock'];
+                $variance = $physicalStock - $systemStock;
                 $varianceValue = $variance * (float)$item['buy_price'];
                 $totalVarianceValue += $varianceValue;
 
@@ -1211,12 +1355,25 @@ class StockOpnameController extends BaseController
                     $totalShortage += abs($varianceValue);
                 }
 
+                // Build locations text with quantities
+                $locationParts = [];
+                foreach ($item['locations'] as $loc) {
+                    $locationParts[] = $loc['name'] . ' (' . number_format($loc['qty'], 2) . ')';
+                }
+                $locationsText = implode("\n", $locationParts);
+
+                // Add total if multiple locations
+                if ($item['counted_locations'] > 1) {
+                    $locationsText .= "\n\n[TOTAL: " . $item['counted_locations'] . " lokasi]";
+                }
+
                 // Skip if show_variance_only and no variance
                 if ($filters['show_variance_only'] === '1' && $variance == 0) {
                     continue;
                 }
             } else {
                 $uncountedItems++;
+                $locationsText = '-';
                 if ($filters['show_variance_only'] === '1') {
                     continue;
                 }
@@ -1233,6 +1390,11 @@ class StockOpnameController extends BaseController
             $sheet->setCellValue('I' . $row, $physicalStock !== null ? $physicalStock : '-');
             $sheet->setCellValue('J' . $row, $variance !== null ? $variance : '-');
             $sheet->setCellValue('K' . $row, $varianceValue !== null ? $varianceValue : '-');
+            $sheet->setCellValue('L' . $row, $locationsText);
+
+            // Enable text wrap for location column
+            $sheet->getStyle('L' . $row)->getAlignment()->setWrapText(true);
+            $sheet->getStyle('L' . $row)->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_TOP);
 
             // Color for variance
             if ($variance !== null && $variance != 0) {
@@ -1245,12 +1407,19 @@ class StockOpnameController extends BaseController
                     ->getStartColor()->setRGB($color);
             }
 
+            // Highlight multiple location items
+            if ($item['counted_locations'] > 1) {
+                $sheet->getStyle('A' . $row . ':L' . $row)->getFill()
+                    ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                    ->getStartColor()->setRGB('E7F3FF');
+            }
+
             $no++;
             $row++;
         }
 
         // Apply border to data rows
-        $dataRange = 'A7:K' . ($row - 1);
+        $dataRange = 'A7:L' . ($row - 1);
         $sheet->getStyle($dataRange)->getBorders()->getAllBorders()
             ->setBorderStyle(\PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN);
 
@@ -1305,6 +1474,9 @@ class StockOpnameController extends BaseController
         foreach (range('A', 'K') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
+
+        // Set width for location column (wider for multiple lines)
+        $sheet->getColumnDimension('L')->setWidth(40);
 
         // Create Excel file
         $filename = 'SO_Report_' . $session['session_code'] . '_' . date('YmdHis') . '.xlsx';
