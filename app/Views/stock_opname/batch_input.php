@@ -454,15 +454,25 @@
             return;
         }
 
+        // Save current input values before validation
+        addedItems.forEach(item => {
+            const existingInput = document.getElementById(`physical_${item.id}`);
+            if (existingInput) {
+                item.physical_stock = existingInput.value;
+            }
+        });
+
         // Validate all items have physical stock
         const items = {};
         let hasInvalid = false;
+        let invalidItems = [];
 
         addedItems.forEach(item => {
             const physicalStock = item.physical_stock;
 
-            if (physicalStock === '' || physicalStock === null) {
+            if (physicalStock === '' || physicalStock === null || physicalStock === undefined) {
                 hasInvalid = true;
+                invalidItems.push(item.code);
                 return;
             }
 
@@ -470,7 +480,7 @@
         });
 
         if (hasInvalid) {
-            alert('Please enter physical stock for all items');
+            alert('Please enter physical stock for all items.\nMissing: ' + invalidItems.join(', '));
             return;
         }
 
