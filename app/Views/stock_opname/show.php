@@ -55,7 +55,7 @@
 </div>
 
 <!-- Summary Cards -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+<div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
     <div class="bg-white p-4 rounded-lg shadow">
         <div class="text-sm text-gray-600">Total Items</div>
         <div class="text-2xl font-bold text-gray-900"><?= number_format($summary['total_items']) ?></div>
@@ -72,8 +72,18 @@
         <div class="text-xs text-gray-500 mt-1">entries belum dihitung</div>
     </div>
     <div class="bg-white p-4 rounded-lg shadow">
-        <div class="text-sm text-gray-600">Total Variance</div>
-        <div class="text-2xl font-bold text-red-600"><?= number_format($summary['total_variance'], 2) ?></div>
+        <div class="text-sm text-gray-600">Net Variance</div>
+        <?php
+        $netVariance = isset($summary['net_variance']) ? $summary['net_variance'] : 0;
+        $variantColor = $netVariance >= 0 ? 'text-green-600' : 'text-red-600';
+        ?>
+        <div class="text-2xl font-bold <?= $variantColor ?>"><?= number_format($netVariance, 2) ?></div>
+        <div class="text-xs text-gray-500 mt-1">selisih bersih (+ lebih / - kurang)</div>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow">
+        <div class="text-sm text-gray-600">Total Absolute Variance</div>
+        <div class="text-2xl font-bold text-purple-600"><?= number_format($summary['total_variance'], 2) ?></div>
+        <div class="text-xs text-gray-500 mt-1">total perbedaan (nilai mutlak)</div>
     </div>
 </div>
 

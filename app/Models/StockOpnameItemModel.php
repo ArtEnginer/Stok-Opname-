@@ -213,7 +213,8 @@ class StockOpnameItemModel extends Model
             SUM(CASE WHEN is_counted = 0 THEN 1 ELSE 0 END) as uncounted_items,
             SUM(CASE WHEN difference > 0 THEN difference ELSE 0 END) as total_surplus,
             SUM(CASE WHEN difference < 0 THEN ABS(difference) ELSE 0 END) as total_shortage,
-            SUM(ABS(difference)) as total_variance
+            SUM(ABS(difference)) as total_variance,
+            SUM(difference) as net_variance
         ')
             ->where('session_id', $sessionId)
             ->get()
