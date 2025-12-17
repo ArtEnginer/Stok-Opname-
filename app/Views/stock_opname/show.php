@@ -690,13 +690,17 @@ $multiLocationCount = count(array_filter($multiLocationProducts, function ($p) {
                             foreach ($productRows[$item['product_id']] as $row) {
                                 if ($row['is_counted']) {
                                     $subtotalPhysical += (float)$row['physical_stock'];
-                                    $subtotalDifference += (float)$row['difference'];
                                     $adjustedPhys = $row['adjusted_physical'] ?? $row['physical_stock'];
                                     $diffAfter = $adjustedPhys - $row['baseline_stock'];
                                     $subtotalDiffAfterAdj += $diffAfter;
                                     $locationCount++;
                                 }
                             }
+
+                            // Recalculate difference: Total Physical - Baseline (bukan sum of individual differences)
+                            // Karena baseline adalah baseline produk secara keseluruhan, bukan per lokasi
+                            $subtotalDifference = $subtotalPhysical - $item['baseline_stock'];
+                            $subtotalDiffAfterAdj = $subtotalPhysical - $item['baseline_stock'];
                         ?>
                             <!-- Subtotal Row untuk Multiple Location Product -->
                             <tr class="bg-gradient-to-r from-blue-100 to-blue-50 border-t-2 border-b-2 border-blue-300 font-bold">
