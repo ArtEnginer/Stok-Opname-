@@ -320,6 +320,14 @@
 
         emptyState.classList.add('hidden');
 
+        // Save current input values before clearing
+        itemsArray.forEach(item => {
+            const existingInput = document.getElementById(`physical_${item.id}`);
+            if (existingInput) {
+                item.physical_stock = existingInput.value;
+            }
+        });
+
         // Clear existing items
         itemsList.querySelectorAll('.item-row').forEach(row => row.remove());
 
@@ -348,7 +356,7 @@
                                id="physical_${item.id}"
                                placeholder="Physical stock"
                                value="${item.physical_stock}"
-                               onchange="updatePhysicalStock(${item.id}, this.value)"
+                               oninput="updatePhysicalStock(${item.id}, this.value)"
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500"
                                required>
                     </div>
