@@ -293,7 +293,15 @@
         // Hide search results and clear search input
         document.getElementById('searchResults').classList.add('hidden');
         document.getElementById('searchInput').value = '';
-        document.getElementById('searchInput').focus();
+
+        // Focus on the physical stock input of the newly added item
+        setTimeout(() => {
+            const physicalInput = document.getElementById(`physical_${item.id}`);
+            if (physicalInput) {
+                physicalInput.focus();
+                physicalInput.select();
+            }
+        }, 100);
     }
 
     // Render items list
