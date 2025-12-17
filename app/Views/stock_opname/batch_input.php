@@ -305,7 +305,7 @@
     }
 
     // Render items list
-    function renderItemsList() {
+    function renderItemsList(skipSaveValues = false) {
         const itemsList = document.getElementById('itemsList');
         const emptyState = document.getElementById('emptyState');
 
@@ -320,13 +320,15 @@
 
         emptyState.classList.add('hidden');
 
-        // Save current input values before clearing
-        itemsArray.forEach(item => {
-            const existingInput = document.getElementById(`physical_${item.id}`);
-            if (existingInput) {
-                item.physical_stock = existingInput.value;
-            }
-        });
+        // Save current input values before clearing (unless skipped)
+        if (!skipSaveValues) {
+            itemsArray.forEach(item => {
+                const existingInput = document.getElementById(`physical_${item.id}`);
+                if (existingInput) {
+                    item.physical_stock = existingInput.value;
+                }
+            });
+        }
 
         // Clear existing items
         itemsList.querySelectorAll('.item-row').forEach(row => row.remove());
@@ -386,11 +388,19 @@
 
     // Remove item from list
     function removeItem(itemId) {
+        // Save current values first before removing
+        addedItems.forEach(item => {
+            const existingInput = document.getElementById(`physical_${item.id}`);
+            if (existingInput && item.id !== itemId) {
+                item.physical_stock = existingInput.value;
+            }
+        });
+
         const index = addedItems.findIndex(i => i.id === itemId);
         if (index > -1) {
             addedItems.splice(index, 1);
         }
-        renderItemsList();
+        renderItemsList(true); // Skip saving values since we already saved them
     }
 
     // Clear all items
