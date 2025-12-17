@@ -364,13 +364,19 @@
                     </div>
                     <div class="col-span-1 text-center">
                         <button type="button" 
-                                onclick="removeItem(${item.id})"
-                                class="px-2 py-1 text-red-600 hover:bg-red-50 rounded">
+                                data-item-id="${item.id}"
+                                class="btn-remove-item px-2 py-1 text-red-600 hover:bg-red-50 rounded">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
             `;
+
+            // Add event listener for remove button
+            const removeBtn = row.querySelector('.btn-remove-item');
+            removeBtn.addEventListener('click', function() {
+                removeItem(item.id);
+            });
 
             itemsList.appendChild(row);
         });
