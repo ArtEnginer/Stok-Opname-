@@ -148,7 +148,7 @@
 
 <?= $this->section('scripts') ?>
 <script>
-    let addedItems = {};
+    let addedItems = [];
     const sessionId = <?= $session['id'] ?>;
 
     // Focus on search input when page loads
@@ -275,7 +275,7 @@
     // Add item to list
     function addItem(item) {
         // Check if already added
-        if (addedItems[item.id]) {
+        if (addedItems.find(i => i.id === item.id)) {
             alert('Item already added to the list');
             document.getElementById('searchResults').classList.add('hidden');
             document.getElementById('searchInput').value = '';
@@ -283,10 +283,10 @@
             return;
         }
 
-        addedItems[item.id] = {
+        addedItems.push({
             ...item,
             physical_stock: ''
-        };
+        });
 
         renderItemsList();
 
@@ -301,7 +301,7 @@
         const itemsList = document.getElementById('itemsList');
         const emptyState = document.getElementById('emptyState');
 
-        const itemsArray = Object.values(addedItems);
+        const itemsArray = addedItems;
 
         if (itemsArray.length === 0) {
             emptyState.classList.remove('hidden');
@@ -362,32 +362,36 @@
 
     // Update physical stock value
     function updatePhysicalStock(itemId, value) {
-        if (addedItems[itemId]) {
-            addedItems[itemId].physical_stock = value;
+        const item = addedItems.find(i => i.id === itemId);
+        if (item) {
+            item.physical_stock = value;
         }
     }
 
     // Remove item from list
     function removeItem(itemId) {
-        delete addedItems[itemId];
+        const index = addedItems.findIndex(i => i.id === itemId);
+        if (index > -1) {
+            addedItems.splice(index, 1);
+        }
         renderItemsList();
     }
 
     // Clear all items
     function clearAllItems() {
-        if (Object.keys(addedItems).length === 0) {
+        if (addedItems.length === 0) {
             return;
         }
 
         if (confirm('Remove all items from the list?')) {
-            addedItems = {};
+            addedItems = [];
             renderItemsList();
         }
     }
 
     // Update item count
     function updateItemCount() {
-        const count = Object.keys(addedItems).length;
+        const count = addedItems.length;
         document.getElementById('itemCount').textContent = count;
         document.getElementById('itemCountBottom').textContent = count;
         document.getElementById('submitBtn').disabled = count === 0;
@@ -422,15 +426,15 @@
         const items = {};
         let hasInvalid = false;
 
-        Object.keys(addedItems).forEach(itemId => {
-            const physicalStock = addedItems[itemId].physical_stock;
+        addedItems.forEach(item => {
+            const physicalStock = item.physical_stock;
 
             if (physicalStock === '' || physicalStock === null) {
                 hasInvalid = true;
                 return;
             }
 
-            items[itemId] = physicalStock;
+            items[item.id] = physicalStock;
         });
 
         if (hasInvalid) {
