@@ -150,10 +150,19 @@
 <script>
     let addedItems = [];
     const sessionId = <?= $session['id'] ?>;
+    let lastSearchKeyword = '';
 
     // Focus on search input when page loads
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('searchInput').focus();
+
+        // Hide search results when user types (keyword changed)
+        document.getElementById('searchInput').addEventListener('input', function() {
+            const currentKeyword = this.value.trim();
+            if (currentKeyword !== lastSearchKeyword) {
+                document.getElementById('searchResults').classList.add('hidden');
+            }
+        });
 
         // Prevent form submission on Enter key for all form elements
         document.getElementById('batchForm').addEventListener('keydown', function(e) {
@@ -175,9 +184,10 @@
     // Handle Enter key on search input
     function handleSearchEnter() {
         const resultsDiv = document.getElementById('searchResults');
+        const currentKeyword = document.getElementById('searchInput').value.trim();
 
-        // If search results are visible, select the first item
-        if (!resultsDiv.classList.contains('hidden')) {
+        // If search results are visible AND keyword hasn't changed, select the first item
+        if (!resultsDiv.classList.contains('hidden') && currentKeyword === lastSearchKeyword) {
             const firstItem = resultsDiv.querySelector('div[data-item]');
             if (firstItem) {
                 firstItem.click();
@@ -185,7 +195,7 @@
             }
         }
 
-        // Otherwise, do search
+        // Otherwise, do search with current keyword
         searchItem();
     }
 
@@ -197,6 +207,9 @@
         if (!keyword) {
             return;
         }
+
+        // Save keyword for comparison
+        lastSearchKeyword = keyword;
 
         try {
             const response = await fetch(`<?= base_url('/stock-opname/') ?>${sessionId}/search-item?q=${encodeURIComponent(keyword)}&location_id=${locationId}`);
