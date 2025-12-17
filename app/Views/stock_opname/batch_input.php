@@ -18,7 +18,7 @@
 
 <!-- Batch Input Form -->
 <div class="bg-white shadow-md rounded-lg p-6 mb-6">
-    <form id="batchForm">
+    <form id="batchForm" onsubmit="return false;">
         <input type="hidden" id="sessionId" value="<?= $session['id'] ?>">
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -54,9 +54,8 @@
                     value="<?= esc(auth()->user() ? auth()->user()->username : '') ?>"
                     placeholder="Nama penghitung"
                     class="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                    required
-                    readonly>
-                <p class="text-xs text-gray-500 mt-1">Otomatis diisi dari user login</p>
+                    required>
+                <p class="text-xs text-gray-500 mt-1">Otomatis diisi dari user login/silahkan isi menggunakan nama penghitung jika berbeda</p>
             </div>
         </div>
 
@@ -155,15 +154,40 @@
     // Focus on search input when page loads
     document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('searchInput').focus();
+
+        // Prevent form submission on Enter key for all form elements
+        document.getElementById('batchForm').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+
+                // If Enter is pressed on search input, do search or select item
+                if (e.target.id === 'searchInput') {
+                    handleSearchEnter();
+                } else {
+                    // Otherwise, focus to search input
+                    document.getElementById('searchInput').focus();
+                }
+                return false;
+            }
+        });
     });
 
-    // Search on Enter key
-    document.getElementById('searchInput').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            searchItem();
+    // Handle Enter key on search input
+    function handleSearchEnter() {
+        const resultsDiv = document.getElementById('searchResults');
+
+        // If search results are visible, select the first item
+        if (!resultsDiv.classList.contains('hidden')) {
+            const firstItem = resultsDiv.querySelector('div[data-item]');
+            if (firstItem) {
+                firstItem.click();
+                return;
+            }
         }
-    });
+
+        // Otherwise, do search
+        searchItem();
+    }
 
     // Search item
     async function searchItem() {
@@ -202,6 +226,7 @@
             const countedLocationsCount = item.counted_locations_count || 0;
 
             div.className = 'p-3 hover:bg-gray-100 cursor-pointer border-b border-gray-200 flex justify-between items-center';
+            div.setAttribute('data-item', JSON.stringify(item));
 
             // Jika sudah counted di location ini, highlight
             if (isCountedAtLocation) {
