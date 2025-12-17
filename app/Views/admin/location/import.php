@@ -5,7 +5,7 @@
     <div class="flex justify-between items-center">
         <div>
             <h2 class="text-3xl font-bold text-gray-900">Import Locations</h2>
-            <p class="mt-1 text-sm text-gray-600">Upload Excel or CSV file to import multiple locations</p>
+            <p class="mt-1 text-sm text-gray-600">Upload Excel file (.xlsx) to import multiple locations</p>
         </div>
         <div class="flex gap-2">
             <a href="<?= base_url('admin/location/download-template') ?>"
@@ -26,12 +26,12 @@
         <i class="fas fa-info-circle mr-2"></i> Import Instructions
     </h3>
     <ol class="list-decimal list-inside space-y-1 text-sm text-blue-800">
-        <li>Download the template file using the button above</li>
-        <li>Fill in your location data in the Excel/CSV file</li>
+        <li>Download the Excel template file using the button above</li>
+        <li>Fill in your location data in the Excel file</li>
         <li>Required columns: <strong>kode_lokasi, nama_lokasi</strong></li>
         <li>Optional columns: <strong>departemen, keterangan, status</strong></li>
         <li>Status values: <strong>aktif</strong> or <strong>tidak_aktif</strong> (default: aktif)</li>
-        <li>Upload the completed file below</li>
+        <li>Upload the completed Excel file below</li>
     </ol>
 </div>
 
@@ -49,10 +49,10 @@
                     <div class="flex flex-col items-center justify-center pt-5 pb-6">
                         <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
                         <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> or drag and drop</p>
-                        <p class="text-xs text-gray-500">Excel (.xlsx, .xls) or CSV (.csv)</p>
+                        <p class="text-xs text-gray-500">Excel files only (.xlsx)</p>
                         <p class="text-xs text-gray-400 mt-2" id="fileName"></p>
                     </div>
-                    <input id="import_file" name="import_file" type="file" class="hidden" accept=".xlsx,.xls,.csv" required onchange="updateFileName(this)">
+                    <input id="import_file" name="import_file" type="file" class="hidden" accept=".xlsx" required onchange="updateFileName(this)">
                 </label>
             </div>
             <?php if (session('errors.import_file')): ?>

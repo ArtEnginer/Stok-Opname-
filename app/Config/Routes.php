@@ -95,7 +95,7 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->post('store', [LocationController::class, 'store']);
         $routes->get('edit/(:num)', [LocationController::class, 'edit/$1']);
         $routes->post('update/(:num)', [LocationController::class, 'update/$1']);
-        $routes->post('delete/(:num)', [LocationController::class, 'delete/$1']);
+        $routes->delete('delete/(:num)', [LocationController::class, 'delete/$1']);
 
         // Import routes
         $routes->get('import', [LocationController::class, 'import']);

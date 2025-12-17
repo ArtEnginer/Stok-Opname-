@@ -432,25 +432,56 @@ class LocationController extends BaseController
      */
     public function downloadTemplate()
     {
-        $filename = 'template_import_lokasi.csv';
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
 
-        header('Content-Type: text/csv; charset=utf-8');
-        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        // Set headers
+        $sheet->setCellValue('A1', 'kode_lokasi');
+        $sheet->setCellValue('B1', 'nama_lokasi');
+        $sheet->setCellValue('C1', 'departemen');
+        $sheet->setCellValue('D1', 'keterangan');
+        $sheet->setCellValue('E1', 'status');
 
-        $output = fopen('php://output', 'w');
-
-        // Add BOM for Excel UTF-8 support
-        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
-
-        // Headers
-        fputcsv($output, ['kode_lokasi', 'nama_lokasi', 'departemen', 'keterangan', 'status']);
+        // Style header
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4F46E5']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER]
+        ];
+        $sheet->getStyle('A1:E1')->applyFromArray($headerStyle);
 
         // Example data
-        fputcsv($output, ['RAK-A-01', 'Rack A Floor 1', 'Warehouse', 'Left side main warehouse', 'aktif']);
-        fputcsv($output, ['RAK-A-02', 'Rack A Floor 2', 'Warehouse', 'Left side level 2', 'aktif']);
-        fputcsv($output, ['SHOW-01', 'Showroom Display 1', 'Showroom', 'Front display area', 'aktif']);
+        $sheet->setCellValue('A2', 'RAK-A-01');
+        $sheet->setCellValue('B2', 'Rack A Floor 1');
+        $sheet->setCellValue('C2', 'Warehouse');
+        $sheet->setCellValue('D2', 'Left side main warehouse');
+        $sheet->setCellValue('E2', 'aktif');
 
-        fclose($output);
+        $sheet->setCellValue('A3', 'RAK-A-02');
+        $sheet->setCellValue('B3', 'Rack A Floor 2');
+        $sheet->setCellValue('C3', 'Warehouse');
+        $sheet->setCellValue('D3', 'Left side level 2');
+        $sheet->setCellValue('E3', 'aktif');
+
+        $sheet->setCellValue('A4', 'SHOW-01');
+        $sheet->setCellValue('B4', 'Showroom Display 1');
+        $sheet->setCellValue('C4', 'Showroom');
+        $sheet->setCellValue('D4', 'Front display area');
+        $sheet->setCellValue('E4', 'aktif');
+
+        // Auto-size columns
+        foreach (range('A', 'E') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Download
+        $filename = 'template_import_lokasi_' . date('Y-m-d') . '.xlsx';
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: max-age=0');
+
+        $writer = \PhpOffice\PhpSpreadsheet\IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $writer->save('php://output');
         exit;
     }
 
@@ -467,8 +498,8 @@ class LocationController extends BaseController
         }
 
         $ext = $file->getExtension();
-        if (!in_array($ext, ['csv', 'xlsx', 'xls'])) {
-            return redirect()->back()->with('error', 'Format file harus CSV atau Excel');
+        if ($ext !== 'xlsx') {
+            return redirect()->back()->with('error', 'Format file harus Excel (.xlsx)');
         }
 
         $imported = 0;
@@ -476,47 +507,49 @@ class LocationController extends BaseController
         $errors = [];
 
         try {
-            if ($ext === 'csv') {
-                $handle = fopen($file->getTempName(), 'r');
+            // Load Excel file
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getTempName());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
 
-                // Skip header
-                fgetcsv($handle);
+            // Skip header row
+            array_shift($rows);
 
-                while (($row = fgetcsv($handle)) !== false) {
-                    if (count($row) < 2) continue;
+            foreach ($rows as $index => $row) {
+                $rowNum = $index + 2; // +2 because we skipped header and arrays are 0-indexed
 
-                    $kode = strtoupper(trim($row[0]));
-                    $nama = trim($row[1]);
-                    $departemen = isset($row[2]) ? trim($row[2]) : null;
-                    $keterangan = isset($row[3]) ? trim($row[3]) : null;
-                    $status = isset($row[4]) ? trim($row[4]) : 'aktif';
+                // Skip empty rows
+                if (empty($row[0]) && empty($row[1])) {
+                    continue;
+                }
 
-                    if (empty($kode) || empty($nama)) {
-                        $errors[] = "Baris dilewati: kode atau nama kosong";
+                $kode = isset($row[0]) ? strtoupper(trim($row[0])) : '';
+                $nama = isset($row[1]) ? trim($row[1]) : '';
+                $departemen = isset($row[2]) ? trim($row[2]) : null;
+                $keterangan = isset($row[3]) ? trim($row[3]) : null;
+                $status = isset($row[4]) ? trim($row[4]) : 'aktif';
+
+                // Validate required fields
+                if (empty($kode) || empty($nama)) {
+                    $errors[] = "Baris {$rowNum}: kode_lokasi dan nama_lokasi harus diisi";
+                    continue;
+                }
+
+                // Validate status
+                if (!in_array($status, ['aktif', 'tidak_aktif'])) {
+                    $status = 'aktif';
+                }
+
+                // Check duplicate
+                $existing = $this->locationModel->where('kode_lokasi', $kode)->first();
+
+                if ($existing) {
+                    if ($skipDuplicates) {
+                        $skipped++;
                         continue;
-                    }
-
-                    // Check duplicate
-                    $existing = $this->locationModel->where('kode_lokasi', $kode)->first();
-
-                    if ($existing) {
-                        if ($skipDuplicates) {
-                            $skipped++;
-                            continue;
-                        } else {
-                            // Update existing
-                            $this->locationModel->update($existing['id'], [
-                                'nama_lokasi' => $nama,
-                                'departemen' => $departemen,
-                                'keterangan' => $keterangan,
-                                'status' => $status
-                            ]);
-                            $imported++;
-                        }
                     } else {
-                        // Insert new
-                        $this->locationModel->insert([
-                            'kode_lokasi' => $kode,
+                        // Update existing
+                        $this->locationModel->update($existing['id'], [
                             'nama_lokasi' => $nama,
                             'departemen' => $departemen,
                             'keterangan' => $keterangan,
@@ -524,20 +557,25 @@ class LocationController extends BaseController
                         ]);
                         $imported++;
                     }
+                } else {
+                    // Insert new
+                    $this->locationModel->insert([
+                        'kode_lokasi' => $kode,
+                        'nama_lokasi' => $nama,
+                        'departemen' => $departemen,
+                        'keterangan' => $keterangan,
+                        'status' => $status
+                    ]);
+                    $imported++;
                 }
-
-                fclose($handle);
-            } else {
-                // For Excel files, would need PHPSpreadsheet library
-                return redirect()->back()->with('error', 'Format Excel belum didukung. Gunakan CSV.');
             }
 
-            $message = "Import selesai: {$imported} data berhasil";
+            $message = "Import selesai: {$imported} data berhasil diimport";
             if ($skipped > 0) {
                 $message .= ", {$skipped} duplikat dilewati";
             }
             if (count($errors) > 0) {
-                $message .= ". " . count($errors) . " baris error.";
+                $message .= ". " . count($errors) . " baris error";
             }
 
             return redirect()->to('/admin/location')->with('success', $message);
