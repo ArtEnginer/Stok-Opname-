@@ -70,7 +70,7 @@
         </div>
 
         <!-- Search/Scan Section -->
-        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 mb-6 bg-gray-50">
+        <div class="sticky top-0 z-10 border-2 border-dashed border-gray-300 rounded-lg p-6 mb-6 bg-gray-50 shadow-md">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">
                 <i class="fas fa-search mr-2"></i> Search / Scan Item
             </h3>
@@ -114,7 +114,7 @@
                 </button>
             </div>
 
-            <div id="itemsList" class="border rounded-lg overflow-hidden">
+            <div id="itemsList" class="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
                 <!-- Items will be added here -->
                 <div id="emptyState" class="p-8 text-center text-gray-500">
                     <i class="fas fa-inbox text-4xl mb-3"></i>
