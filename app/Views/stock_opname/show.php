@@ -1364,8 +1364,9 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                                     <div class="text-sm text-gray-600">${product.name}</div>
                                     <div class="text-xs text-gray-500 mt-1">
                                         ${product.plu ? 'PLU: ' + product.plu + ' | ' : ''}
-                                        ${product.category || '-'} | 
-                                        Current Stock: ${product.stock}
+                                        ${product.category || '-'}
+                                        ${product.department ? ' | ' + product.department : ''} | 
+                                        Stock: ${product.stock || 0}
                                     </div>
                                 </div>
                                 <button class="text-teal-600 hover:text-teal-700 px-3 py-1 text-sm font-medium">
@@ -1406,8 +1407,11 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                 <div class="text-gray-600">Category:</div>
                 <div class="font-semibold">${product.category || '-'}</div>
                 
+                <div class="text-gray-600">Department:</div>
+                <div class="font-semibold">${product.department || '-'}</div>
+                
                 <div class="text-gray-600">Current Stock:</div>
-                <div class="font-semibold">${product.stock}</div>
+                <div class="font-semibold">${product.stock || 0}</div>
             </div>
             <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
                 <i class="fas fa-info-circle mr-1"></i>

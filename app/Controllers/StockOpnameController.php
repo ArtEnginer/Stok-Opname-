@@ -400,15 +400,17 @@ class StockOpnameController extends BaseController
             return $this->response->setJSON(['success' => false, 'message' => 'Search keyword required']);
         }
 
-        // Get products that are NOT in this session yet
+        // Get products that are NOT in this session yet using LEFT JOIN
         $builder = $this->db->table('products p');
-        $builder->select('p.id, p.code, p.plu, p.name, p.unit, p.category, p.stock')
-            ->where('p.id NOT IN (SELECT product_id FROM stock_opname_items WHERE session_id = ?)', [$sessionId])
+        $builder->select('p.id, p.code, p.plu, p.name, p.unit, p.category, p.stock, p.department')
+            ->join('stock_opname_items soi', "soi.product_id = p.id AND soi.session_id = {$sessionId}", 'left')
+            ->where('soi.id IS NULL') // Product yang belum ada di session
             ->groupStart()
             ->like('p.code', $keyword)
             ->orLike('p.plu', $keyword)
             ->orLike('p.name', $keyword)
             ->groupEnd()
+            ->orderBy('p.code', 'ASC')
             ->limit(20);
 
         $products = $builder->get()->getResultArray();
