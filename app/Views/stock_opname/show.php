@@ -1265,6 +1265,77 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
     // ===== ADD NEW PRODUCT FUNCTIONS =====
     let searchTimeout;
 
+    async function searchAllProducts() {
+        const resultsDiv = document.getElementById('searchResults');
+        if (!resultsDiv) {
+            console.error('searchResults element not found');
+            return;
+        }
+        resultsDiv.innerHTML = '<div class="text-gray-500 text-sm p-2"><i class="fas fa-spinner fa-spin mr-2"></i>Memuat semua produk...</div>';
+
+        try {
+            // Search dengan karakter 'a' untuk mendapat banyak hasil
+            const url = `<?= base_url('/stock-opname/' . $session['id'] . '/search-new-products') ?>?q=a`;
+            console.log('Loading all products with URL:', url);
+
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const result = await response.json();
+
+            console.log('All products result:', result);
+
+            if (result.success && result.data.length > 0) {
+                let html = `
+                    <div class="border border-gray-300 rounded-lg max-h-96 overflow-y-auto">
+                        <div class="bg-blue-50 p-2 text-xs text-blue-700 border-b border-blue-200 sticky top-0">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Menampilkan ${result.data.length} produk yang belum ada di session ini
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                `;
+
+                result.data.forEach(product => {
+                    html += `
+                        <div class="p-3 hover:bg-gray-50 cursor-pointer" onclick='selectProduct(${JSON.stringify(product)})'>
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-gray-900">${product.code}</div>
+                                    <div class="text-sm text-gray-600">${product.name}</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        ${product.plu ? 'PLU: ' + product.plu + ' | ' : ''}
+                                        ${product.category || '-'}
+                                        ${product.department ? ' | ' + product.department : ''} | 
+                                        Stock: ${product.stock || 0}
+                                    </div>
+                                </div>
+                                <button class="text-teal-600 hover:text-teal-700 px-3 py-1 text-sm font-medium">
+                                    Pilih <i class="fas fa-arrow-right ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div></div>';
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = `
+                    <div class="text-yellow-600 text-sm p-3 border border-yellow-300 bg-yellow-50 rounded-lg">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        Semua produk sudah ditambahkan ke session ini!
+                        <div class="text-xs mt-1">Debug info: ${JSON.stringify(result.debug || {})}</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading all products:', error);
+            resultsDiv.innerHTML = '<div class="text-red-500 text-sm p-2 border border-red-300 rounded-lg">Error: ' + error.message + '</div>';
+        }
+    }
+
     function openAddProductModal() {
         const modalHtml = `
             <div id="addProductModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1284,11 +1355,17 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                             <label class="block text-sm font-medium text-gray-700 mb-2">
                                 Cari Barang (Code, PLU, atau Nama)
                             </label>
-                            <input type="text" 
-                                   id="searchNewProduct" 
-                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500"
-                                   placeholder="Ketik minimal 2 karakter untuk mencari..."
-                                   autocomplete="off">
+                            <div class="flex gap-2">
+                                <input type="text" 
+                                       id="searchNewProduct" 
+                                       class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500"
+                                       placeholder="Ketik minimal 2 karakter untuk mencari..."
+                                       autocomplete="off">
+                                <button onclick="searchAllProducts()" 
+                                        class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-sm whitespace-nowrap">
+                                    <i class="fas fa-list mr-1"></i> Lihat Semua
+                                </button>
+                            </div>
                             <div id="searchResults" class="mt-2"></div>
                         </div>
                         
@@ -1317,17 +1394,23 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
         // Setup search input event
-        document.getElementById('searchNewProduct').addEventListener('input', function(e) {
-            clearTimeout(searchTimeout);
-            const keyword = e.target.value.trim();
+        const searchInput = document.getElementById('searchNewProduct');
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                clearTimeout(searchTimeout);
+                const keyword = e.target.value.trim();
+                const resultsDiv = document.getElementById('searchResults');
 
-            if (keyword.length < 2) {
-                document.getElementById('searchResults').innerHTML = '';
-                return;
-            }
+                if (keyword.length < 2) {
+                    if (resultsDiv) {
+                        resultsDiv.innerHTML = '';
+                    }
+                    return;
+                }
 
-            searchTimeout = setTimeout(() => searchNewProducts(keyword), 300);
-        });
+                searchTimeout = setTimeout(() => searchNewProducts(keyword), 300);
+            });
+        }
 
         // Focus on search input
         setTimeout(() => {
@@ -1346,11 +1429,24 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
 
     async function searchNewProducts(keyword) {
         const resultsDiv = document.getElementById('searchResults');
+        if (!resultsDiv) {
+            console.error('searchResults element not found');
+            return;
+        }
         resultsDiv.innerHTML = '<div class="text-gray-500 text-sm p-2"><i class="fas fa-spinner fa-spin mr-2"></i>Mencari...</div>';
 
         try {
-            const response = await fetch(`<?= base_url('/stock-opname/' . $session['id'] . '/search-new-products') ?>?q=${encodeURIComponent(keyword)}`);
+            const url = `<?= base_url('/stock-opname/' . $session['id'] . '/search-new-products') ?>?q=${encodeURIComponent(keyword)}`;
+            console.log('Searching products with URL:', url);
+
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
             const result = await response.json();
+
+            console.log('Search result:', result);
 
             if (result.success && result.data.length > 0) {
                 let html = '<div class="border border-gray-300 rounded-lg divide-y divide-gray-200 max-h-64 overflow-y-auto">';
@@ -1379,12 +1475,30 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
 
                 html += '</div>';
                 resultsDiv.innerHTML = html;
+            } else if (result.success && result.data.length === 0) {
+                let debugInfo = '';
+                if (result.debug) {
+                    debugInfo = `<div class="text-xs text-gray-400 mt-2">
+                        Debug: Keyword="${result.debug.keyword}", 
+                        Existing=${result.debug.existing_count} items, 
+                        Found=${result.debug.found_count}
+                    </div>`;
+                }
+                resultsDiv.innerHTML = `
+                    <div class="text-gray-500 text-sm p-3 border border-gray-300 rounded-lg">
+                        <i class="fas fa-search mr-2"></i>Tidak ada barang ditemukan dengan keyword "${keyword}"
+                        <div class="text-xs text-gray-400 mt-1">
+                            Kemungkinan: Semua barang sudah ada di session atau tidak ada yang cocok dengan pencarian
+                        </div>
+                        ${debugInfo}
+                    </div>
+                `;
             } else {
-                resultsDiv.innerHTML = '<div class="text-gray-500 text-sm p-2 border border-gray-300 rounded-lg">Tidak ada barang ditemukan</div>';
+                resultsDiv.innerHTML = '<div class="text-red-500 text-sm p-2 border border-red-300 rounded-lg">' + (result.message || 'Unknown error') + '</div>';
             }
         } catch (error) {
             console.error('Error searching products:', error);
-            resultsDiv.innerHTML = '<div class="text-red-500 text-sm p-2">Error: ' + error.message + '</div>';
+            resultsDiv.innerHTML = '<div class="text-red-500 text-sm p-2 border border-red-300 rounded-lg">Error: ' + error.message + '</div>';
         }
     }
 

@@ -391,33 +391,46 @@ class StockOpnameController extends BaseController
      */
     public function searchNewProducts($sessionId)
     {
-        if (!$this->request->isAJAX()) {
-            return $this->response->setJSON(['success' => false, 'message' => 'Invalid request']);
-        }
-
+        // Accept both AJAX and regular requests for modern fetch API compatibility
         $keyword = $this->request->getGet('q');
         if (empty($keyword)) {
             return $this->response->setJSON(['success' => false, 'message' => 'Search keyword required']);
         }
 
-        // Get products that are NOT in this session yet using LEFT JOIN
-        $builder = $this->db->table('products p');
-        $builder->select('p.id, p.code, p.plu, p.name, p.unit, p.category, p.stock, p.department')
-            ->join('stock_opname_items soi', "soi.product_id = p.id AND soi.session_id = {$sessionId}", 'left')
-            ->where('soi.id IS NULL') // Product yang belum ada di session
-            ->groupStart()
-            ->like('p.code', $keyword)
-            ->orLike('p.plu', $keyword)
-            ->orLike('p.name', $keyword)
-            ->groupEnd()
-            ->orderBy('p.code', 'ASC')
-            ->limit(20);
+        // First get all product IDs that are already in this session
+        $existingProductIds = $this->itemModel
+            ->select('product_id')
+            ->where('session_id', $sessionId)
+            ->findColumn('product_id');
 
-        $products = $builder->get()->getResultArray();
+        // Search products with keyword matching
+        $builder = $this->db->table('products');
+        $builder->select('id, code, plu, name, unit, category, stock, department')
+            ->groupStart()
+            ->like('code', $keyword)
+            ->orLike('plu', $keyword)
+            ->orLike('name', $keyword)
+            ->groupEnd();
+
+        // Exclude products that are already in the session
+        if (!empty($existingProductIds)) {
+            $builder->whereNotIn('id', $existingProductIds);
+        }
+
+        $products = $builder->orderBy('code', 'ASC')
+            ->limit(20)
+            ->get()
+            ->getResultArray();
 
         return $this->response->setJSON([
             'success' => true,
-            'data' => $products
+            'data' => $products,
+            'debug' => [
+                'keyword' => $keyword,
+                'session_id' => $sessionId,
+                'existing_count' => count($existingProductIds),
+                'found_count' => count($products)
+            ]
         ]);
     }
 
