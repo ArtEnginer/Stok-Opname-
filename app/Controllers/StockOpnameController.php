@@ -301,6 +301,125 @@ class StockOpnameController extends BaseController
     }
 
     /**
+     * Add new product to existing SO session
+     * Untuk barang yang baru dibeli setelah SO dibuka
+     */
+    public function addNewProduct($sessionId)
+    {
+        if (!$this->request->isAJAX()) {
+            return redirect()->back()->with('error', 'Invalid request');
+        }
+
+        $session = $this->sessionModel->find($sessionId);
+        if (!$session) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Session not found']);
+        }
+
+        if ($session['status'] !== 'open') {
+            return $this->response->setJSON(['success' => false, 'message' => 'Cannot add product to closed session']);
+        }
+
+        $productId = $this->request->getPost('product_id');
+        if (!$productId) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Product ID is required']);
+        }
+
+        // Cek apakah product sudah ada di session ini
+        $existingItem = $this->itemModel
+            ->where('session_id', $sessionId)
+            ->where('product_id', $productId)
+            ->first();
+
+        if ($existingItem) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Product already exists in this session']);
+        }
+
+        // Get product info
+        $product = $this->productModel->find($productId);
+        if (!$product) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Product not found']);
+        }
+
+        // Baseline untuk barang baru = stok sistem saat ini (biasanya 0 untuk barang baru)
+        // Atau bisa juga hitung dari transaksi sejak session date
+        $baselineStock = (float)$product['stock'];
+
+        // Hitung mutasi dari session_date sampai sekarang
+        $mutation = $this->transactionModel->getMutation(
+            $productId,
+            $session['session_date'],
+            date('Y-m-d')
+        );
+
+        $adjustedBaseline = $baselineStock + $mutation;
+
+        // Insert item baru ke session
+        $itemData = [
+            'session_id' => $sessionId,
+            'product_id' => $productId,
+            'baseline_stock' => $adjustedBaseline,
+            'original_baseline_stock' => $baselineStock,
+            'physical_stock' => null,
+            'difference' => 0,
+            'is_counted' => false,
+            'created_at' => date('Y-m-d H:i:s'),
+            'updated_at' => date('Y-m-d H:i:s'),
+        ];
+
+        $itemId = $this->itemModel->insert($itemData);
+
+        if ($itemId) {
+            return $this->response->setJSON([
+                'success' => true,
+                'message' => 'Product added successfully to session',
+                'data' => [
+                    'item_id' => $itemId,
+                    'product_code' => $product['code'],
+                    'product_name' => $product['name'],
+                    'baseline_stock' => $adjustedBaseline,
+                    'mutation' => $mutation
+                ]
+            ]);
+        }
+
+        return $this->response->setJSON(['success' => false, 'message' => 'Failed to add product']);
+    }
+
+    /**
+     * Search products that are not yet in the session
+     * For adding new products to SO
+     */
+    public function searchNewProducts($sessionId)
+    {
+        if (!$this->request->isAJAX()) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Invalid request']);
+        }
+
+        $keyword = $this->request->getGet('q');
+        if (empty($keyword)) {
+            return $this->response->setJSON(['success' => false, 'message' => 'Search keyword required']);
+        }
+
+        // Get products that are NOT in this session yet
+        $builder = $this->db->table('products p');
+        $builder->select('p.id, p.code, p.plu, p.name, p.unit, p.category, p.stock')
+            ->where('p.id NOT IN (SELECT product_id FROM stock_opname_items WHERE session_id = ?)', [$sessionId])
+            ->groupStart()
+            ->like('p.code', $keyword)
+            ->orLike('p.plu', $keyword)
+            ->orLike('p.name', $keyword)
+            ->groupEnd()
+            ->limit(20);
+
+        $products = $builder->get()->getResultArray();
+
+        return $this->response->setJSON([
+            'success' => true,
+            'data' => $products
+        ]);
+    }
+
+    /**
      * Update physical stock for an item
      * Recalculate baseline jika ada mutasi dari tanggal SO ke tanggal hitung
      */

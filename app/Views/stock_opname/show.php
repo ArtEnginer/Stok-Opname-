@@ -17,6 +17,10 @@
         </div>
         <div class="flex gap-2 flex-wrap">
             <?php if ($session['status'] === 'open'): ?>
+                <button onclick="openAddProductModal()"
+                    class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700">
+                    <i class="fas fa-plus-circle mr-2"></i> Add New Product
+                </button>
                 <a href="<?= base_url('/stock-opname/' . $session['id'] . '/batch-input') ?>"
                     class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700">
                     <i class="fas fa-layer-group mr-2"></i> Batch Input
@@ -86,6 +90,23 @@
         <div class="text-xs text-gray-500 mt-1">total perbedaan (nilai mutlak)</div>
     </div>
 </div>
+
+<!-- Info: Add New Product Feature -->
+<?php if ($session['status'] === 'open'): ?>
+    <div class="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
+        <div class="flex items-start gap-3">
+            <i class="fas fa-info-circle text-teal-600 text-xl mt-0.5"></i>
+            <div class="flex-1">
+                <h4 class="font-semibold text-teal-900 mb-1">Fitur: Tambah Barang Baru</h4>
+                <p class="text-sm text-teal-800">
+                    Jika ada pembelian barang baru setelah SO dibuka, Anda bisa menambahkannya dengan klik tombol
+                    <strong>"Add New Product"</strong>. Baseline akan otomatis dihitung dari stok sistem + mutasi sejak SO dibuka.
+                    Barang baru biasanya memiliki baseline 0 jika belum ada transaksi sebelumnya.
+                </p>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
 
 <!-- Baseline Control & Transaction Summary -->
 <?php if ($session['status'] === 'open'): ?>
@@ -1238,6 +1259,208 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
         } catch (error) {
             console.error('Error loading mutation detail:', error);
             alert('Error: ' + error.message);
+        }
+    }
+
+    // ===== ADD NEW PRODUCT FUNCTIONS =====
+    let searchTimeout;
+
+    function openAddProductModal() {
+        const modalHtml = `
+            <div id="addProductModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="p-6 border-b border-gray-200">
+                        <h3 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+                            <i class="fas fa-plus-circle text-teal-600"></i>
+                            Tambah Barang Baru ke Session
+                        </h3>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Untuk barang yang baru dibeli setelah SO dibuka. Baseline akan otomatis dihitung.
+                        </p>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Cari Barang (Code, PLU, atau Nama)
+                            </label>
+                            <input type="text" 
+                                   id="searchNewProduct" 
+                                   class="w-full rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring-teal-500"
+                                   placeholder="Ketik minimal 2 karakter untuk mencari..."
+                                   autocomplete="off">
+                            <div id="searchResults" class="mt-2"></div>
+                        </div>
+                        
+                        <div id="selectedProductInfo" class="hidden mb-4 p-4 bg-teal-50 border border-teal-200 rounded-lg">
+                            <h4 class="font-semibold text-teal-900 mb-2">Barang Terpilih:</h4>
+                            <div id="productDetails"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6 border-t border-gray-200 flex justify-end gap-2">
+                        <button onclick="closeAddProductModal()" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
+                            <i class="fas fa-times mr-2"></i>Batal
+                        </button>
+                        <button id="btnAddProduct" 
+                                onclick="addProductToSession()" 
+                                disabled
+                                class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                            <i class="fas fa-plus mr-2"></i>Tambahkan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        // Setup search input event
+        document.getElementById('searchNewProduct').addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            const keyword = e.target.value.trim();
+
+            if (keyword.length < 2) {
+                document.getElementById('searchResults').innerHTML = '';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => searchNewProducts(keyword), 300);
+        });
+
+        // Focus on search input
+        setTimeout(() => {
+            document.getElementById('searchNewProduct').focus();
+        }, 100);
+    }
+
+    function closeAddProductModal() {
+        const modal = document.getElementById('addProductModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+    let selectedProduct = null;
+
+    async function searchNewProducts(keyword) {
+        const resultsDiv = document.getElementById('searchResults');
+        resultsDiv.innerHTML = '<div class="text-gray-500 text-sm p-2"><i class="fas fa-spinner fa-spin mr-2"></i>Mencari...</div>';
+
+        try {
+            const response = await fetch(`<?= base_url('/stock-opname/' . $session['id'] . '/search-new-products') ?>?q=${encodeURIComponent(keyword)}`);
+            const result = await response.json();
+
+            if (result.success && result.data.length > 0) {
+                let html = '<div class="border border-gray-300 rounded-lg divide-y divide-gray-200 max-h-64 overflow-y-auto">';
+
+                result.data.forEach(product => {
+                    html += `
+                        <div class="p-3 hover:bg-gray-50 cursor-pointer" onclick='selectProduct(${JSON.stringify(product)})'>
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-gray-900">${product.code}</div>
+                                    <div class="text-sm text-gray-600">${product.name}</div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        ${product.plu ? 'PLU: ' + product.plu + ' | ' : ''}
+                                        ${product.category || '-'} | 
+                                        Current Stock: ${product.stock}
+                                    </div>
+                                </div>
+                                <button class="text-teal-600 hover:text-teal-700 px-3 py-1 text-sm font-medium">
+                                    Pilih <i class="fas fa-arrow-right ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                resultsDiv.innerHTML = html;
+            } else {
+                resultsDiv.innerHTML = '<div class="text-gray-500 text-sm p-2 border border-gray-300 rounded-lg">Tidak ada barang ditemukan</div>';
+            }
+        } catch (error) {
+            console.error('Error searching products:', error);
+            resultsDiv.innerHTML = '<div class="text-red-500 text-sm p-2">Error: ' + error.message + '</div>';
+        }
+    }
+
+    function selectProduct(product) {
+        selectedProduct = product;
+
+        // Show selected product info
+        const detailsDiv = document.getElementById('productDetails');
+        detailsDiv.innerHTML = `
+            <div class="grid grid-cols-2 gap-2 text-sm">
+                <div class="text-gray-600">Code:</div>
+                <div class="font-semibold">${product.code}</div>
+                
+                <div class="text-gray-600">PLU:</div>
+                <div class="font-semibold">${product.plu || '-'}</div>
+                
+                <div class="text-gray-600">Nama:</div>
+                <div class="font-semibold">${product.name}</div>
+                
+                <div class="text-gray-600">Category:</div>
+                <div class="font-semibold">${product.category || '-'}</div>
+                
+                <div class="text-gray-600">Current Stock:</div>
+                <div class="font-semibold">${product.stock}</div>
+            </div>
+            <div class="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                <i class="fas fa-info-circle mr-1"></i>
+                Baseline akan otomatis dihitung berdasarkan stok sistem + mutasi sejak SO dibuka
+            </div>
+        `;
+
+        document.getElementById('selectedProductInfo').classList.remove('hidden');
+        document.getElementById('btnAddProduct').disabled = false;
+        document.getElementById('searchResults').innerHTML = '';
+        document.getElementById('searchNewProduct').value = '';
+    }
+
+    async function addProductToSession() {
+        if (!selectedProduct) {
+            alert('Pilih barang terlebih dahulu');
+            return;
+        }
+
+        const btn = document.getElementById('btnAddProduct');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Menambahkan...';
+
+        try {
+            const formData = new FormData();
+            formData.append('product_id', selectedProduct.id);
+
+            const response = await fetch('<?= base_url('/stock-opname/' . $session['id'] . '/add-new-product') ?>', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`Berhasil! ${result.data.product_name} ditambahkan ke session.\n\nBaseline: ${result.data.baseline_stock}\nMutasi: ${result.data.mutation}`);
+                closeAddProductModal();
+
+                // Reload page to show new product
+                window.location.reload();
+            } else {
+                alert('Error: ' + result.message);
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-plus mr-2"></i>Tambahkan';
+            }
+        } catch (error) {
+            console.error('Error adding product:', error);
+            alert('Error: ' + error.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-plus mr-2"></i>Tambahkan';
         }
     }
 </script>

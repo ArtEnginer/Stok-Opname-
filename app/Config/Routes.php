@@ -50,6 +50,10 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
 
         // New: Mutation detail AJAX
         $routes->get('(:num)/mutation-detail/(:num)', [StockOpnameController::class, 'getMutationDetail/$1/$2']);
+
+        // New: Add new product to session
+        $routes->post('(:num)/add-new-product', [StockOpnameController::class, 'addNewProduct/$1'], ['filter' => 'permission:stockopname.edit']);
+        $routes->get('(:num)/search-new-products', [StockOpnameController::class, 'searchNewProducts/$1']);
     });
 
     // Product Routes - Admin Only
