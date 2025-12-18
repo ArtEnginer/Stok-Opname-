@@ -280,6 +280,9 @@ class StockOpnameController extends BaseController
         // Get locations without any counted items
         $locationsWithoutItems = $this->locationModel->getLocationsWithoutItems($sessionId);
 
+        // Get summary by department
+        $departmentSummary = $this->itemModel->getSummaryByDepartment($sessionId);
+
         $data = [
             'title' => 'Stock Opname: ' . $session['session_code'],
             'session' => $session,
@@ -287,6 +290,7 @@ class StockOpnameController extends BaseController
             'pager' => $this->itemModel->pager,
             'summary' => $summary,
             'mutation_summary' => $mutationSummary,
+            'department_summary' => $departmentSummary,
             'filters' => $filters,
             'categories' => $this->productModel->getCategories(),
             'departments' => $this->productModel->getDepartments(),

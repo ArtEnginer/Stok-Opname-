@@ -91,6 +91,112 @@
     </div>
 </div>
 
+<!-- Department Summary Cards -->
+<?php if (!empty($department_summary)): ?>
+<div class="mb-6">
+    <div class="bg-white p-4 rounded-lg shadow">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <i class="fas fa-building text-blue-600"></i>
+                Summary per Department
+                <span class="text-sm font-normal text-gray-500">(<?= count($department_summary) ?> departments)</span>
+            </h3>
+            <button onclick="toggleAllDepartments()" class="text-sm text-blue-600 hover:text-blue-800">
+                <i class="fas fa-expand-alt mr-1"></i>
+                <span id="toggleAllText">Expand All</span>
+            </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <?php foreach ($department_summary as $dept): ?>
+                <?php 
+                $deptId = 'dept_' . preg_replace('/[^a-zA-Z0-9]/', '_', $dept['department']);
+                $progress = $dept['unique_products'] > 0 ? round(($dept['counted_products'] / $dept['unique_products']) * 100) : 0;
+                $varianceColor = $dept['net_variance'] >= 0 ? 'text-green-600' : 'text-red-600';
+                ?>
+                <div class="border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                    <!-- Header - Clickable -->
+                    <div class="p-4 cursor-pointer hover:bg-gray-50" onclick="toggleDepartment('<?= $deptId ?>')">
+                        <div class="flex justify-between items-start mb-3">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 text-sm mb-1">
+                                    <?= esc($dept['department']) ?>
+                                </h4>
+                                <div class="text-xs text-gray-500">
+                                    <?= $dept['unique_products'] ?> products | <?= $dept['total_items'] ?> entries
+                                </div>
+                            </div>
+                            <i class="fas fa-chevron-down text-gray-400 transition-transform" id="icon_<?= $deptId ?>"></i>
+                        </div>
+                        
+                        <!-- Progress Bar -->
+                        <div class="mb-2">
+                            <div class="flex justify-between text-xs text-gray-600 mb-1">
+                                <span>Progress</span>
+                                <span class="font-semibold"><?= $progress ?>%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full transition-all" style="width: <?= $progress ?>%"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Stats -->
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span class="text-gray-500">Counted:</span>
+                                <span class="font-semibold text-green-600"><?= $dept['counted_items'] ?></span>
+                            </div>
+                            <div>
+                                <span class="text-gray-500">Uncounted:</span>
+                                <span class="font-semibold text-orange-600"><?= $dept['uncounted_items'] ?></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Detail - Collapsible -->
+                    <div id="<?= $deptId ?>" class="hidden border-t border-gray-200 p-4 bg-gray-50">
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Total Items (Entries):</span>
+                                <span class="font-semibold"><?= number_format($dept['total_items']) ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Unique Products:</span>
+                                <span class="font-semibold"><?= number_format($dept['unique_products']) ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Products Counted:</span>
+                                <span class="font-semibold text-green-600"><?= number_format($dept['counted_products']) ?></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Products Uncounted:</span>
+                                <span class="font-semibold text-orange-600"><?= number_format($dept['unique_products'] - $dept['counted_products']) ?></span>
+                            </div>
+                            <hr class="my-2">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Net Variance:</span>
+                                <span class="font-bold <?= $varianceColor ?>">
+                                    <?= $dept['net_variance'] >= 0 ? '+' : '' ?><?= number_format($dept['net_variance'], 2) ?>
+                                </span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Total Variance:</span>
+                                <span class="font-semibold text-purple-600"><?= number_format($dept['total_variance'], 2) ?></span>
+                            </div>
+                            <hr class="my-2">
+                            <a href="<?= base_url('/stock-opname/' . $session['id'] . '?department=' . urlencode($dept['department'])) ?>" 
+                               class="block text-center py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-xs font-medium">
+                                <i class="fas fa-eye mr-1"></i> View Items
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- Info: Add New Product Feature -->
 <?php if ($session['status'] === 'open'): ?>
     <div class="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-4">
@@ -1260,6 +1366,47 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
             console.error('Error loading mutation detail:', error);
             alert('Error: ' + error.message);
         }
+    }
+
+    // ===== DEPARTMENT SUMMARY FUNCTIONS =====
+    function toggleDepartment(deptId) {
+        const detailDiv = document.getElementById(deptId);
+        const icon = document.getElementById('icon_' + deptId);
+        
+        if (detailDiv.classList.contains('hidden')) {
+            detailDiv.classList.remove('hidden');
+            icon.classList.add('rotate-180');
+        } else {
+            detailDiv.classList.add('hidden');
+            icon.classList.remove('rotate-180');
+        }
+    }
+
+    let allExpanded = false;
+    function toggleAllDepartments() {
+        const allDetails = document.querySelectorAll('[id^="dept_"]');
+        const allIcons = document.querySelectorAll('[id^="icon_dept_"]');
+        const toggleText = document.getElementById('toggleAllText');
+        
+        allExpanded = !allExpanded;
+        
+        allDetails.forEach(detail => {
+            if (allExpanded) {
+                detail.classList.remove('hidden');
+            } else {
+                detail.classList.add('hidden');
+            }
+        });
+        
+        allIcons.forEach(icon => {
+            if (allExpanded) {
+                icon.classList.add('rotate-180');
+            } else {
+                icon.classList.remove('rotate-180');
+            }
+        });
+        
+        toggleText.textContent = allExpanded ? 'Collapse All' : 'Expand All';
     }
 
     // ===== ADD NEW PRODUCT FUNCTIONS =====

@@ -291,6 +291,70 @@ class StockOpnameItemModel extends Model
     }
 
     /**
+     * Get summary per department for a session
+     */
+    public function getSummaryByDepartment($sessionId)
+    {
+        $query = $this->db->query("
+            SELECT 
+                department,
+                SUM(total_items) as total_items,
+                SUM(counted_items) as counted_items,
+                SUM(uncounted_items) as uncounted_items,
+                SUM(unique_products) as unique_products,
+                SUM(counted_products) as counted_products,
+                SUM(net_variance) as net_variance,
+                SUM(total_variance) as total_variance
+            FROM (
+                -- Items/Entries count per department
+                SELECT 
+                    COALESCE(p.department, 'No Department') as department,
+                    COUNT(soi.id) as total_items,
+                    SUM(CASE WHEN soi.is_counted = 1 THEN 1 ELSE 0 END) as counted_items,
+                    SUM(CASE WHEN soi.is_counted = 0 THEN 1 ELSE 0 END) as uncounted_items,
+                    COUNT(DISTINCT soi.product_id) as unique_products,
+                    COUNT(DISTINCT CASE WHEN soi.is_counted = 1 THEN soi.product_id END) as counted_products,
+                    0 as net_variance,
+                    0 as total_variance
+                FROM stock_opname_items soi
+                LEFT JOIN products p ON p.id = soi.product_id
+                WHERE soi.session_id = ?
+                GROUP BY COALESCE(p.department, 'No Department')
+                
+                UNION ALL
+                
+                -- Variance per department (calculated per product, not per item)
+                SELECT 
+                    COALESCE(p.department, 'No Department') as department,
+                    0 as total_items,
+                    0 as counted_items,
+                    0 as uncounted_items,
+                    0 as unique_products,
+                    0 as counted_products,
+                    SUM(pv.total_difference) as net_variance,
+                    SUM(ABS(pv.total_difference)) as total_variance
+                FROM (
+                    SELECT 
+                        soi.product_id,
+                        MAX(soi.baseline_stock) as baseline_stock,
+                        SUM(CASE WHEN soi.is_counted = 1 THEN soi.physical_stock ELSE 0 END) as total_physical,
+                        (SUM(CASE WHEN soi.is_counted = 1 THEN soi.physical_stock ELSE 0 END) - MAX(soi.baseline_stock)) as total_difference
+                    FROM stock_opname_items soi
+                    WHERE soi.session_id = ?
+                    GROUP BY soi.product_id
+                    HAVING MAX(CASE WHEN soi.is_counted = 1 THEN 1 ELSE 0 END) = 1
+                ) pv
+                LEFT JOIN products p ON p.id = pv.product_id
+                GROUP BY COALESCE(p.department, 'No Department')
+            ) combined
+            GROUP BY department
+            ORDER BY department
+        ", [$sessionId, $sessionId]);
+
+        return $query->getResultArray();
+    }
+
+    /**
      * Get item by session and product
      */
     public function getItemBySessionProduct($sessionId, $productId)
