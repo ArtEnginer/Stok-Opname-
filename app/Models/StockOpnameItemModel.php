@@ -76,10 +76,51 @@ class StockOpnameItemModel extends Model
             $this->where('stock_opname_items.is_counted', $filters['is_counted']);
         }
 
+        if (!empty($filters['location_id'])) {
+            $this->where('stock_opname_items.location_id', $filters['location_id']);
+        }
+
+        if (!empty($filters['has_difference'])) {
+            $this->where('stock_opname_items.difference !=', 0);
+        }
+
+        // Sorting
+        $sortBy = $filters['sort_by'] ?? 'code';
+        $sortDir = strtoupper($filters['sort_dir'] ?? 'asc');
+        if (!in_array($sortDir, ['ASC', 'DESC'])) {
+            $sortDir = 'ASC';
+        }
+
+        // Map sort columns
+        $sortMap = [
+            'code' => 'p.code',
+            'plu' => 'p.plu',
+            'name' => 'p.name',
+            'category' => 'p.category',
+            'department' => 'p.department',
+            'location' => 'l.nama_lokasi',
+            'baseline_stock' => 'stock_opname_items.baseline_stock',
+            'original_baseline_stock' => 'stock_opname_items.original_baseline_stock',
+            'physical_stock' => 'stock_opname_items.physical_stock',
+            'difference' => 'stock_opname_items.difference',
+            'counted_date' => 'stock_opname_items.counted_date',
+        ];
+
+        $sortColumn = $sortMap[$sortBy] ?? 'p.code';
+        $this->orderBy($sortColumn, $sortDir);
+
+        // Secondary sort untuk consistency
+        if ($sortBy !== 'code') {
+            $this->orderBy('p.code', 'ASC');
+        }
+        if ($sortBy !== 'location') {
+            $this->orderBy('l.nama_lokasi', 'ASC');
+        }
+
         // Pagination
         $perPage = $filters['per_page'] ?? 50;
 
-        return $this->orderBy('p.code', 'ASC')->orderBy('l.nama_lokasi', 'ASC')->paginate($perPage);
+        return $this->paginate($perPage);
     }
 
     /**

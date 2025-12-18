@@ -208,6 +208,10 @@ class StockOpnameController extends BaseController
             'category' => $this->request->getGet('category'),
             'department' => $this->request->getGet('department'),
             'is_counted' => $this->request->getGet('is_counted'),
+            'location_id' => $this->request->getGet('location_id'),
+            'has_difference' => $this->request->getGet('has_difference'),
+            'sort_by' => $this->request->getGet('sort_by') ?? 'code',
+            'sort_dir' => $this->request->getGet('sort_dir') ?? 'asc',
             'per_page' => $this->request->getGet('per_page') ?? 50,
         ];
 

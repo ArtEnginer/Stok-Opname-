@@ -129,9 +129,9 @@
                     <div class="flex gap-2">
                         <input type="date" name="freeze_date" value="<?= date('Y-m-d') ?>"
                             class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        <!-- <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                             <i class="fas fa-lock mr-2"></i> Freeze
-                        </button>
+                        </button> -->
                     </div>
                 </form>
             <?php endif; ?>
@@ -286,46 +286,72 @@ $totalPendingLocations = $totalUncountedLocations + $totalLocationsWithoutItems;
 
 <!-- Filters -->
 <div class="bg-white p-4 rounded-lg shadow mb-4">
-    <form method="GET" class="grid grid-cols-1 md:grid-cols-5 gap-3" id="filterForm">
-        <input type="text"
-            name="search"
-            value="<?= esc($filters['search'] ?? '') ?>"
-            placeholder="Search by code, PLU, or name..."
-            class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+    <form method="GET" id="filterForm">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+            <input type="text"
+                name="search"
+                value="<?= esc($filters['search'] ?? '') ?>"
+                placeholder="Search by code, PLU, or name..."
+                class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 lg:col-span-3">
 
-        <select name="category" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <option value="">All Categories</option>
-            <?php foreach ($categories as $cat): ?>
-                <option value="<?= esc($cat['category']) ?>" <?= ($filters['category'] ?? '') === $cat['category'] ? 'selected' : '' ?>>
-                    <?= esc($cat['category']) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
+            <select name="category" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All Categories</option>
+                <?php foreach ($categories as $cat): ?>
+                    <option value="<?= esc($cat['category']) ?>" <?= ($filters['category'] ?? '') === $cat['category'] ? 'selected' : '' ?>>
+                        <?= esc($cat['category']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
 
-        <select name="department" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <option value="">All Departments</option>
-            <?php foreach ($departments as $dept): ?>
-                <option value="<?= esc($dept['department']) ?>" <?= ($filters['department'] ?? '') === $dept['department'] ? 'selected' : '' ?>>
-                    <?= esc($dept['department']) ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
+            <select name="department" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All Departments</option>
+                <?php foreach ($departments as $dept): ?>
+                    <option value="<?= esc($dept['department']) ?>" <?= ($filters['department'] ?? '') === $dept['department'] ? 'selected' : '' ?>>
+                        <?= esc($dept['department']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
 
-        <select name="is_counted" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
-            <option value="">All Items</option>
-            <option value="1" <?= ($filters['is_counted'] ?? '') === '1' ? 'selected' : '' ?>>Counted Only</option>
-            <option value="0" <?= ($filters['is_counted'] ?? '') === '0' ? 'selected' : '' ?>>Not Counted Only</option>
-        </select>
+            <select name="location_id" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All Locations</option>
+                <?php foreach ($locations as $loc): ?>
+                    <option value="<?= esc($loc['id']) ?>" <?= ($filters['location_id'] ?? '') == $loc['id'] ? 'selected' : '' ?>>
+                        <?= esc($loc['kode_lokasi']) ?> - <?= esc($loc['nama_lokasi']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
 
-        <!-- Preserve per_page in filter -->
+            <select name="is_counted" class="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                <option value="">All Items</option>
+                <option value="1" <?= ($filters['is_counted'] ?? '') === '1' ? 'selected' : '' ?>>Counted Only</option>
+                <option value="0" <?= ($filters['is_counted'] ?? '') === '0' ? 'selected' : '' ?>>Not Counted Only</option>
+            </select>
+        </div>
+
+        <div class="flex items-center gap-2 p-3 bg-gray-50 rounded-md border border-gray-300">
+            <input type="checkbox"
+                id="has_difference"
+                name="has_difference"
+                value="1"
+                <?= !empty($filters['has_difference']) ? 'checked' : '' ?>
+                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+            <label for="has_difference" class="text-sm font-medium text-gray-700 cursor-pointer">
+                <i class="fas fa-exclamation-triangle text-orange-500 mr-1"></i>
+                Hanya dengan Selisih
+            </label>
+        </div>
+
+        <!-- Preserve per_page and sort in filter -->
         <input type="hidden" name="per_page" value="<?= esc($filters['per_page'] ?? 50) ?>">
+        <input type="hidden" name="sort_by" value="<?= esc($filters['sort_by'] ?? 'code') ?>">
+        <input type="hidden" name="sort_dir" value="<?= esc($filters['sort_dir'] ?? 'asc') ?>">
 
         <div class="flex gap-2">
-            <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                 <i class="fas fa-filter"></i> Filter
             </button>
             <a href="<?= base_url('/stock-opname/' . $session['id']) ?>" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400">
-                <i class="fas fa-times"></i>
+                <i class="fas fa-times"></i> Reset
             </a>
         </div>
     </form>
@@ -482,6 +508,30 @@ $multiLocationCount = count(array_filter($multiLocationProducts, function ($p) {
 </form>
 </div>
 
+<?php
+// Helper function untuk generate sort URL
+function getSortUrl($column, $currentSortBy, $currentSortDir, $filters, $sessionId)
+{
+    $newSortDir = ($currentSortBy == $column && $currentSortDir == 'asc') ? 'desc' : 'asc';
+    $params = array_merge($filters, ['sort_by' => $column, 'sort_dir' => $newSortDir]);
+    return base_url('/stock-opname/' . $sessionId . '?' . http_build_query($params));
+}
+
+// Helper function untuk generate sort icon
+function getSortIcon($column, $currentSortBy, $currentSortDir)
+{
+    if ($currentSortBy != $column) {
+        return '<i class="fas fa-sort text-gray-300 ml-1"></i>';
+    }
+    return $currentSortDir == 'asc'
+        ? '<i class="fas fa-sort-up text-blue-600 ml-1"></i>'
+        : '<i class="fas fa-sort-down text-blue-600 ml-1"></i>';
+}
+
+$currentSortBy = $filters['sort_by'] ?? 'code';
+$currentSortDir = $filters['sort_dir'] ?? 'asc';
+?>
+
 <!-- Items Table -->
 <div class="bg-white shadow-md rounded-lg overflow-hidden">
     <div class="p-4 border-b border-gray-200 bg-gray-50">
@@ -495,28 +545,65 @@ $multiLocationCount = count(array_filter($multiLocationProducts, function ($p) {
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Code</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">PLU</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <a href="<?= getSortUrl('code', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Code
+                            <?= getSortIcon('code', $currentSortBy, $currentSortDir) ?>
+                        </a>
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <a href="<?= getSortUrl('plu', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            PLU
+                            <?= getSortIcon('plu', $currentSortBy, $currentSortDir) ?>
+                        </a>
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <a href="<?= getSortUrl('name', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Name
+                            <?= getSortIcon('name', $currentSortBy, $currentSortDir) ?>
+                        </a>
+                    </th>
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase" title="Location where this item was counted">
-                        Location
+                        <a href="<?= getSortUrl('location', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Location
+                            <?= getSortIcon('location', $currentSortBy, $currentSortDir) ?>
+                        </a>
                         <i class="fas fa-question-circle text-gray-400 ml-1" title="Item bisa ada di multiple locations"></i>
                     </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Original baseline when session created">
-                        Original<br>Baseline
+                        <a href="<?= getSortUrl('original_baseline_stock', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Original<br>Baseline
+                            <?= getSortIcon('original_baseline_stock', $currentSortBy, $currentSortDir) ?>
+                        </a>
                     </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Mutation since session started">
                         Mutation
                     </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Real-time baseline (Original + Mutation)">
-                        Real-Time<br>Baseline
+                        <a href="<?= getSortUrl('baseline_stock', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Real-Time<br>Baseline
+                            <?= getSortIcon('baseline_stock', $currentSortBy, $currentSortDir) ?>
+                        </a>
                     </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Physical stock at this specific location">
-                        Physical<br>(Lokasi Ini)
+                        <a href="<?= getSortUrl('physical_stock', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Physical<br>(Lokasi Ini)
+                            <?= getSortIcon('physical_stock', $currentSortBy, $currentSortDir) ?>
+                        </a>
                     </th>
-                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Difference before adjustment">Difference</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Difference before adjustment">
+                        <a href="<?= getSortUrl('difference', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Difference
+                            <?= getSortIcon('difference', $currentSortBy, $currentSortDir) ?>
+                        </a>
+                    </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase" title="Difference after mutation adjustment">Diff After Adj</th>
-                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Counted Date</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                        <a href="<?= getSortUrl('counted_date', $currentSortBy, $currentSortDir, $filters, $session['id']) ?>" class="hover:text-blue-600 inline-flex items-center">
+                            Counted Date
+                            <?= getSortIcon('counted_date', $currentSortBy, $currentSortDir) ?>
+                        </a>
+                    </th>
                     <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
             </thead>
