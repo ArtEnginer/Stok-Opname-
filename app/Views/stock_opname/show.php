@@ -155,17 +155,32 @@
 
                         <!-- Detail - Collapsible -->
                         <div id="<?= $deptId ?>" class="hidden border-t border-gray-200 p-4 bg-gray-50">
+                            <!-- Info Box Explanation -->
+                            <div class="mb-3 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                <strong>Kenapa berbeda?</strong> Counted entries (<?= number_format($dept['counted_items']) ?>) ≠ Products counted (<?= number_format($dept['counted_products']) ?>) karena 1 product bisa dihitung di multiple locations.
+                                <div class="mt-1 text-blue-700">
+                                    Contoh: Product A di 3 lokasi = 3 entries tapi 1 product ✓
+                                </div>
+                            </div>
+
                             <div class="space-y-2 text-sm">
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">Total Items (Entries):</span>
+                                    <span class="text-gray-600">Total Items (Entries):
+                                        <i class="fas fa-question-circle text-gray-400 text-xs" title="Total entries termasuk multiple locations"></i>
+                                    </span>
                                     <span class="font-semibold"><?= number_format($dept['total_items']) ?></span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">Unique Products:</span>
+                                    <span class="text-gray-600">Unique Products:
+                                        <i class="fas fa-question-circle text-gray-400 text-xs" title="Jumlah produk berbeda/unik"></i>
+                                    </span>
                                     <span class="font-semibold"><?= number_format($dept['unique_products']) ?></span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">Products Counted:</span>
+                                    <span class="text-gray-600">Products Counted:
+                                        <i class="fas fa-question-circle text-gray-400 text-xs" title="Unique products yang sudah dihitung (min. 1 lokasi)"></i>
+                                    </span>
                                     <span class="font-semibold text-green-600"><?= number_format($dept['counted_products']) ?></span>
                                 </div>
                                 <div class="flex justify-between">
