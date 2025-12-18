@@ -246,20 +246,48 @@ class StockOpnameItemModel extends Model
      */
     public function getSessionSummary($sessionId)
     {
+        // Get basic counts (per entry/location)
         $builder = $this->db->table($this->table);
-
-        return $builder->select('
+        $basicStats = $builder->select('
             COUNT(*) as total_items,
             SUM(CASE WHEN is_counted = 1 THEN 1 ELSE 0 END) as counted_items,
-            SUM(CASE WHEN is_counted = 0 THEN 1 ELSE 0 END) as uncounted_items,
-            SUM(CASE WHEN difference > 0 THEN difference ELSE 0 END) as total_surplus,
-            SUM(CASE WHEN difference < 0 THEN ABS(difference) ELSE 0 END) as total_shortage,
-            SUM(ABS(difference)) as total_variance,
-            SUM(difference) as net_variance
+            SUM(CASE WHEN is_counted = 0 THEN 1 ELSE 0 END) as uncounted_items
         ')
             ->where('session_id', $sessionId)
             ->get()
             ->getRowArray();
+
+        // Calculate variance per PRODUCT (not per item/location)
+        // This correctly handles multiple locations by summing physical stock per product
+        $varianceQuery = $this->db->query("
+            SELECT 
+                SUM(CASE 
+                    WHEN total_difference > 0 THEN total_difference 
+                    ELSE 0 
+                END) as total_surplus,
+                SUM(CASE 
+                    WHEN total_difference < 0 THEN ABS(total_difference) 
+                    ELSE 0 
+                END) as total_shortage,
+                SUM(ABS(total_difference)) as total_variance,
+                SUM(total_difference) as net_variance
+            FROM (
+                SELECT 
+                    product_id,
+                    MAX(baseline_stock) as baseline_stock,
+                    SUM(CASE WHEN is_counted = 1 THEN physical_stock ELSE 0 END) as total_physical,
+                    (SUM(CASE WHEN is_counted = 1 THEN physical_stock ELSE 0 END) - MAX(baseline_stock)) as total_difference
+                FROM stock_opname_items
+                WHERE session_id = ?
+                GROUP BY product_id
+                HAVING MAX(CASE WHEN is_counted = 1 THEN 1 ELSE 0 END) = 1
+            ) as product_variance
+        ", [$sessionId]);
+
+        $varianceStats = $varianceQuery->getRowArray();
+
+        // Merge both results
+        return array_merge($basicStats, $varianceStats);
     }
 
     /**
