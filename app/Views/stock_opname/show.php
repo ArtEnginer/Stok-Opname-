@@ -47,10 +47,10 @@
                 class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
                 <i class="fas fa-print mr-2"></i> Print
             </a>
-            <a href="<?= base_url('/stock-opname/' . $session['id'] . '/export-report') ?>"
+            <button onclick="openExportModal()"
                 class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
                 <i class="fas fa-file-excel mr-2"></i> Export Excel
-            </a>
+            </button>
             <a href="<?= base_url('/stock-opname') ?>" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
                 <i class="fas fa-arrow-left mr-2"></i> Back
             </a>
@@ -1104,6 +1104,91 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
         </div>
     </div>
 </div>
+
+<!-- Modal Export dengan Pilihan Department -->
+<div id="exportModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-file-excel text-green-600 mr-2"></i>
+                Export Excel - Pilih Department
+            </h3>
+            <button onclick="closeExportModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <div class="mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <label class="text-sm font-medium text-gray-700">
+                    Pilih Department yang ingin di-export:
+                </label>
+                <div class="flex gap-2">
+                    <button type="button" onclick="selectAllDepartments()"
+                        class="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                        <i class="fas fa-check-double mr-1"></i> Pilih Semua
+                    </button>
+                    <button type="button" onclick="deselectAllDepartments()"
+                        class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200">
+                        <i class="fas fa-times mr-1"></i> Hapus Semua
+                    </button>
+                </div>
+            </div>
+
+            <div class="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <?php if (!empty($department_summary)): ?>
+                        <?php foreach ($department_summary as $dept): ?>
+                            <label class="flex items-start p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox"
+                                    name="export_departments[]"
+                                    value="<?= esc($dept['department']) ?>"
+                                    class="mt-1 h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded export-dept-checkbox"
+                                    checked>
+                                <div class="ml-3 flex-1">
+                                    <div class="font-medium text-gray-900 text-sm">
+                                        <?= esc($dept['department']) ?>
+                                    </div>
+                                    <div class="text-xs text-gray-500 mt-1">
+                                        <?= $dept['unique_products'] ?> produk |
+                                        <?= $dept['counted_items'] ?> terhitung / <?= $dept['total_items'] ?> total
+                                    </div>
+                                </div>
+                            </label>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div class="col-span-2 text-center text-gray-500 py-4">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            Tidak ada data department
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div id="exportWarning" class="hidden mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5 mr-2"></i>
+                    <div class="text-sm text-yellow-800">
+                        <strong>Perhatian:</strong> Tidak ada department yang dipilih. Silakan pilih minimal 1 department.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end gap-2">
+            <button type="button" onclick="closeExportModal()"
+                class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600">
+                <i class="fas fa-times mr-2"></i> Batal
+            </button>
+            <button type="button" onclick="executeExport()"
+                id="btnExecuteExport"
+                class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                <i class="fas fa-file-download mr-2"></i> Export Sekarang
+            </button>
+        </div>
+    </div>
+</div>
+
 <?= $this->endSection() ?>
 
 <?= $this->section('scripts') ?>
@@ -1744,5 +1829,64 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
             btn.innerHTML = '<i class="fas fa-plus mr-2"></i>Tambahkan';
         }
     }
+
+    // Export Modal Functions
+    function openExportModal() {
+        document.getElementById('exportModal').classList.remove('hidden');
+        // Reset warning
+        document.getElementById('exportWarning').classList.add('hidden');
+    }
+
+    function closeExportModal() {
+        document.getElementById('exportModal').classList.add('hidden');
+    }
+
+    function selectAllDepartments() {
+        document.querySelectorAll('.export-dept-checkbox').forEach(checkbox => {
+            checkbox.checked = true;
+        });
+        document.getElementById('exportWarning').classList.add('hidden');
+    }
+
+    function deselectAllDepartments() {
+        document.querySelectorAll('.export-dept-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+    }
+
+    function executeExport() {
+        const selectedDepartments = [];
+        document.querySelectorAll('.export-dept-checkbox:checked').forEach(checkbox => {
+            selectedDepartments.push(checkbox.value);
+        });
+
+        if (selectedDepartments.length === 0) {
+            document.getElementById('exportWarning').classList.remove('hidden');
+            return;
+        }
+
+        // Build URL with selected departments
+        const baseUrl = '<?= base_url('/stock-opname/' . $session['id'] . '/export-report') ?>';
+        const params = new URLSearchParams();
+
+        selectedDepartments.forEach(dept => {
+            params.append('departments[]', dept);
+        });
+
+        const exportUrl = baseUrl + '?' + params.toString();
+
+        // Open export URL in new window/tab
+        window.location.href = exportUrl;
+
+        // Close modal
+        closeExportModal();
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('exportModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeExportModal();
+        }
+    });
 </script>
 <?= $this->endSection() ?>

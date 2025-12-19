@@ -1336,6 +1336,7 @@ class StockOpnameController extends BaseController
         $filters = [
             'category' => $this->request->getGet('category'),
             'department' => $this->request->getGet('department'),
+            'departments' => $this->request->getGet('departments'), // Multiple departments
             'is_counted' => $this->request->getGet('is_counted'),
             'show_variance_only' => $this->request->getGet('show_variance_only'),
         ];
@@ -1355,9 +1356,15 @@ class StockOpnameController extends BaseController
         if (!empty($filters['category'])) {
             $builder->where('p.category', $filters['category']);
         }
-        if (!empty($filters['department'])) {
+
+        // Handle multiple departments filter
+        if (!empty($filters['departments']) && is_array($filters['departments'])) {
+            $builder->whereIn('p.department', $filters['departments']);
+        } elseif (!empty($filters['department'])) {
+            // Backward compatibility with single department filter
             $builder->where('p.department', $filters['department']);
         }
+
         if ($filters['is_counted'] !== null && $filters['is_counted'] !== '') {
             $builder->where('soi.is_counted', $filters['is_counted']);
         }
@@ -1417,37 +1424,62 @@ class StockOpnameController extends BaseController
         $sheet->setCellValue('A2', 'Session: ' . $session['session_code']);
         $sheet->setCellValue('A3', 'Tanggal: ' . date('d/m/Y', strtotime($session['session_date'])));
         $sheet->setCellValue('A4', 'Status: ' . ucfirst($session['status']));
-        $sheet->setCellValue('A5', 'Dicetak: ' . date('d/m/Y H:i:s'));
 
-        // Merge header cells
+        $currentRow = 5;
+
+        // Add department filter info if applicable
+        if (!empty($filters['departments']) && is_array($filters['departments'])) {
+            $deptList = implode(', ', $filters['departments']);
+            $sheet->setCellValue('A' . $currentRow, 'Department: ' . $deptList);
+            $sheet->mergeCells('A' . $currentRow . ':L' . $currentRow);
+            $sheet->getStyle('A' . $currentRow)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $currentRow)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('E3F2FD');
+            $currentRow++;
+        } elseif (!empty($filters['department'])) {
+            $sheet->setCellValue('A' . $currentRow, 'Department: ' . $filters['department']);
+            $sheet->mergeCells('A' . $currentRow . ':L' . $currentRow);
+            $sheet->getStyle('A' . $currentRow)->getFont()->setBold(true);
+            $sheet->getStyle('A' . $currentRow)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('E3F2FD');
+            $currentRow++;
+        }
+
+        $sheet->setCellValue('A' . $currentRow, 'Dicetak: ' . date('d/m/Y H:i:s'));
+        $sheet->mergeCells('A' . $currentRow . ':L' . $currentRow);
+
+        // Merge header cells (rows 1-4 always, row 5 conditionally)
         $sheet->mergeCells('A1:L1');
         $sheet->mergeCells('A2:L2');
         $sheet->mergeCells('A3:L3');
         $sheet->mergeCells('A4:L4');
-        $sheet->mergeCells('A5:L5');
 
         // Style header info
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-        $sheet->getStyle('A1:A5')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A1:A' . $currentRow)->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
 
-        // Table Header (Row 7)
-        $headers = [
-            'A7' => 'No',
-            'B7' => 'Code',
-            'C7' => 'PLU',
-            'D7' => 'Nama Barang',
-            'E7' => 'Department',
-            'F7' => 'Kategori',
-            'G7' => 'Harga Beli',
-            'H7' => 'Stok Sistem',
-            'I7' => 'Stok Fisik (Total)',
-            'J7' => 'Selisih',
-            'K7' => 'Nominal',
-            'L7' => 'Lokasi'
+        // Table Header (Row after header info + 1)
+        $headerRow = $currentRow + 2;
+        $headerColumns = [
+            'No',
+            'Code',
+            'PLU',
+            'Nama Barang',
+            'Department',
+            'Kategori',
+            'Harga Beli',
+            'Stok Sistem',
+            'Stok Fisik (Total)',
+            'Selisih',
+            'Nominal',
+            'Lokasi'
         ];
-
-        foreach ($headers as $cell => $value) {
-            $sheet->setCellValue($cell, $value);
+        $colIndex = 'A';
+        foreach ($headerColumns as $header) {
+            $sheet->setCellValue($colIndex . $headerRow, $header);
+            $colIndex++;
         }
 
         // Style table header
@@ -1457,10 +1489,10 @@ class StockOpnameController extends BaseController
             'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER, 'vertical' => \PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER],
             'borders' => ['allBorders' => ['borderStyle' => \PhpOffice\PhpSpreadsheet\Style\Border::BORDER_THIN]]
         ];
-        $sheet->getStyle('A7:L7')->applyFromArray($headerStyle);
+        $sheet->getStyle('A' . $headerRow . ':L' . $headerRow)->applyFromArray($headerStyle);
 
         // Data rows
-        $row = 8;
+        $row = $headerRow + 1;
         $no = 1;
         $totalVarianceValue = 0;
         $totalSurplus = 0;
@@ -1609,8 +1641,10 @@ class StockOpnameController extends BaseController
         $sheet->getStyle('A' . $row . ':B' . $row)->getFont()->setBold(true);
 
         // Format number columns
-        $sheet->getStyle('G8:G' . ($row - 8))->getNumberFormat()->setFormatCode('#,##0.00');
-        $sheet->getStyle('H8:K' . ($row - 8))->getNumberFormat()->setFormatCode('#,##0.00');
+        $dataStartRow = $headerRow + 1;
+        $dataEndRow = $row - 8;
+        $sheet->getStyle('G' . $dataStartRow . ':G' . $dataEndRow)->getNumberFormat()->setFormatCode('#,##0.00');
+        $sheet->getStyle('H' . $dataStartRow . ':K' . $dataEndRow)->getNumberFormat()->setFormatCode('#,##0.00');
 
         // Auto-size columns
         foreach (range('A', 'K') as $col) {
@@ -1620,8 +1654,29 @@ class StockOpnameController extends BaseController
         // Set width for location column (wider for multiple lines)
         $sheet->getColumnDimension('L')->setWidth(40);
 
-        // Create Excel file
-        $filename = 'SO_Report_' . $session['session_code'] . '_' . date('YmdHis') . '.xlsx';
+        // Create Excel file with department info in filename
+        $filenameParts = ['SO_Report', $session['session_code']];
+
+        if (!empty($filters['departments']) && is_array($filters['departments'])) {
+            // Multiple departments selected
+            if (count($filters['departments']) <= 3) {
+                // If 3 or less, show all department names
+                $deptNames = implode('-', array_map(function ($dept) {
+                    return preg_replace('/[^a-zA-Z0-9]/', '', substr($dept, 0, 10));
+                }, $filters['departments']));
+                $filenameParts[] = $deptNames;
+            } else {
+                // If more than 3, just show count
+                $filenameParts[] = count($filters['departments']) . 'Dept';
+            }
+        } elseif (!empty($filters['department'])) {
+            // Single department filter
+            $deptName = preg_replace('/[^a-zA-Z0-9]/', '', substr($filters['department'], 0, 15));
+            $filenameParts[] = $deptName;
+        }
+
+        $filenameParts[] = date('YmdHis');
+        $filename = implode('_', $filenameParts) . '.xlsx';
 
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
