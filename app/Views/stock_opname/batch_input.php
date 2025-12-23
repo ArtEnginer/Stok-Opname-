@@ -541,7 +541,7 @@
                 if (result.mutations && result.mutations.length > 0) {
                     message += '\\n\\nMutations detected for ' + result.mutations.length + ' items:';
                     result.mutations.forEach(m => {
-                        message += '\\n- Item ID ' + m.item_id + ': ' + (m.mutation > 0 ? '+' : '') + m.mutation.toFixed(2);
+                        message += '\\n- Item Code ' + m.product_code + ': ' + (m.mutation > 0 ? '+' : '') + m.mutation.toFixed(2);
                     });
                     message += '\\n\\nBaselines have been adjusted automatically.';
                 }

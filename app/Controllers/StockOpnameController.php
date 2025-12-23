@@ -748,8 +748,10 @@ class StockOpnameController extends BaseController
                 if ($this->itemModel->update($existingEntry['id'], $data)) {
                     $successCount++;
                     if ($mutationAtCount != 0) {
+                        $product = $this->productModel->find($item['product_id']);
                         $mutations[] = [
                             'item_id' => $existingEntry['id'],
+                            'product_code' => $product['code'] ?? 'N/A',
                             'mutation' => $mutationAtCount
                         ];
                     }
@@ -763,8 +765,10 @@ class StockOpnameController extends BaseController
                     if ($this->itemModel->update($itemId, $data)) {
                         $successCount++;
                         if ($mutationAtCount != 0) {
+                            $product = $this->productModel->find($item['product_id']);
                             $mutations[] = [
                                 'item_id' => $itemId,
+                                'product_code' => $product['code'] ?? 'N/A',
                                 'mutation' => $mutationAtCount
                             ];
                         }
@@ -783,8 +787,10 @@ class StockOpnameController extends BaseController
                     if ($newId) {
                         $successCount++;
                         if ($mutationAtCount != 0) {
+                            $product = $this->productModel->find($item['product_id']);
                             $mutations[] = [
                                 'item_id' => $newId,
+                                'product_code' => $product['code'] ?? 'N/A',
                                 'mutation' => $mutationAtCount
                             ];
                         }
