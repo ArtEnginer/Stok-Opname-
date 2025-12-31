@@ -1399,39 +1399,45 @@ class StockOpnameController extends BaseController
                     'buy_price' => $item['buy_price'],
                     'original_baseline_stock' => $item['original_baseline_stock'],
                     'total_physical_stock' => 0,
+                    'mutation_after_count' => 0,
                     'locations' => [],
                     'is_counted' => false,
-                    'counted_locations' => 0
+                    'counted_locations' => 0,
+                    'counted_date' => null
                 ];
             }
 
             if ($item['is_counted']) {
                 $groupedItems[$productId]['is_counted'] = true;
 
-                // Calculate mutation after count and adjusted physical
-                $mutationAfterCount = 0;
-                if ($item['counted_date']) {
-                    $mutationAfterCount = $this->transactionModel->getMutation(
-                        $item['product_id'],
-                        $item['counted_date'],
-                        $referenceDate
-                    );
-                }
-                $adjustedPhysical = (float)$item['physical_stock'] + $mutationAfterCount;
-
-                // Use adjusted physical for total
-                $groupedItems[$productId]['total_physical_stock'] += $adjustedPhysical;
+                // Sum physical stock dari semua lokasi (sebelum adjustment)
+                $groupedItems[$productId]['total_physical_stock'] += (float)$item['physical_stock'];
                 $groupedItems[$productId]['counted_locations']++;
+
+                // Store counted_date untuk mutation calculation (ambil yang pertama)
+                if (!$groupedItems[$productId]['counted_date']) {
+                    $groupedItems[$productId]['counted_date'] = $item['counted_date'];
+                }
 
                 $locationName = $item['kode_lokasi'] ? $item['kode_lokasi'] . ' - ' . $item['nama_lokasi'] : ($item['location'] ?? 'Unknown');
                 $groupedItems[$productId]['locations'][] = [
                     'name' => $locationName,
-                    'qty' => $adjustedPhysical,
-                    'original_qty' => (float)$item['physical_stock'],
-                    'adjustment' => $mutationAfterCount
+                    'qty' => (float)$item['physical_stock']
                 ];
             }
         }
+
+        // Calculate mutation_after_count per product (sekali saja, bukan per lokasi)
+        foreach ($groupedItems as &$product) {
+            if ($product['is_counted'] && $product['counted_date']) {
+                $product['mutation_after_count'] = $this->transactionModel->getMutation(
+                    $product['product_id'],
+                    $product['counted_date'],
+                    $referenceDate
+                );
+            }
+        }
+        unset($product); // Break reference
 
         $items = array_values($groupedItems);
 
@@ -1538,8 +1544,11 @@ class StockOpnameController extends BaseController
             if ($item['is_counted']) {
                 $countedItems++;
 
-                // Use total physical stock from all locations
-                $physicalStock = $item['total_physical_stock'];
+                // Calculate adjusted physical stock: Total Raw Physical + Mutation After Count (per product)
+                $physicalStockRaw = $item['total_physical_stock'];
+                $mutationAfterCount = $item['mutation_after_count'];
+                $physicalStock = $physicalStockRaw + $mutationAfterCount;
+
                 $variance = $physicalStock - $systemStock;
                 $varianceValue = $variance * (float)$item['buy_price'];
                 $totalVarianceValue += $varianceValue;
@@ -1553,18 +1562,19 @@ class StockOpnameController extends BaseController
                 // Build locations text with quantities
                 $locationParts = [];
                 foreach ($item['locations'] as $loc) {
-                    if ($loc['adjustment'] != 0) {
-                        // Show adjustment if exists
-                        $locationParts[] = $loc['name'] . ' (' . number_format($loc['qty'], 2) . ' | Counted: ' . number_format($loc['original_qty'], 2) . ', Adj: ' . number_format($loc['adjustment'], 2) . ')';
-                    } else {
-                        $locationParts[] = $loc['name'] . ' (' . number_format($loc['qty'], 2) . ')';
-                    }
+                    $locationParts[] = $loc['name'] . ' (' . number_format($loc['qty'], 2) . ')';
                 }
                 $locationsText = implode("\n", $locationParts);
 
                 // Add total if multiple locations
                 if ($item['counted_locations'] > 1) {
-                    $locationsText .= "\n\n[TOTAL ADJUSTED: " . number_format($physicalStock, 2) . " dari " . $item['counted_locations'] . " lokasi]";
+                    $summaryText = "\n\n[TOTAL RAW: " . number_format($physicalStockRaw, 2);
+                    if ($mutationAfterCount != 0) {
+                        $summaryText .= " | Adj: " . number_format($mutationAfterCount, 2);
+                        $summaryText .= " | FINAL: " . number_format($physicalStock, 2);
+                    }
+                    $summaryText .= " dari " . $item['counted_locations'] . " lokasi]";
+                    $locationsText .= $summaryText;
                 }
 
                 // Skip if show_variance_only and no variance
