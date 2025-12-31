@@ -914,18 +914,26 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                             // NOTE: Baseline adalah per PRODUCT (bukan per lokasi), jadi ambil dari salah satu row
                             $subtotalOriginalBaseline = $item['original_baseline_stock'];
                             $subtotalRealtimeBaseline = $item['baseline_stock'];
-                            $subtotalPhysical = 0;
+                            $subtotalPhysicalRaw = 0; // Physical count sebelum adjustment
+                            $totalMutationAfterCount = 0; // Total mutation after count untuk product ini
                             $locationCount = 0;
 
                             foreach ($productRows[$item['product_id']] as $row) {
                                 if ($row['is_counted']) {
-                                    // Use adjusted physical if available, otherwise use physical stock
-                                    $adjustedPhys = $row['adjusted_physical'] ?? $row['physical_stock'];
-                                    $subtotalPhysical += (float)$adjustedPhys;
+                                    // Sum physical stock dari semua lokasi
+                                    $subtotalPhysicalRaw += (float)$row['physical_stock'];
+
+                                    // Get mutation after count (should be same for all locations of same product)
+                                    if (isset($row['mutation_after_count'])) {
+                                        $totalMutationAfterCount = $row['mutation_after_count']; // Ambil sekali saja karena per product
+                                    }
 
                                     $locationCount++;
                                 }
                             }
+
+                            // Calculate adjusted physical: Total Physical + Mutation After Count
+                            $subtotalPhysical = $subtotalPhysicalRaw + $totalMutationAfterCount;
 
                             // Calculate difference: Total Adjusted Physical - Real-Time Baseline (product level)
                             $subtotalDifference = $subtotalPhysical - $subtotalRealtimeBaseline;
