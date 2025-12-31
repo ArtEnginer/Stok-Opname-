@@ -911,18 +911,14 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                         // Jika ini last entry dari product yang ada di multiple locations, tampilkan subtotal row
                         if ($isLastEntry && $hasMultipleLocations):
                             // Calculate subtotal untuk product ini
-                            $subtotalOriginalBaseline = 0;
-                            $subtotalRealtimeBaseline = 0;
+                            // NOTE: Baseline adalah per PRODUCT (bukan per lokasi), jadi ambil dari salah satu row
+                            $subtotalOriginalBaseline = $item['original_baseline_stock'];
+                            $subtotalRealtimeBaseline = $item['baseline_stock'];
                             $subtotalPhysical = 0;
-                            $subtotalDifference = 0;
-                            $subtotalDiffAfterAdj = 0;
                             $locationCount = 0;
 
                             foreach ($productRows[$item['product_id']] as $row) {
                                 if ($row['is_counted']) {
-                                    $subtotalOriginalBaseline += (float)$row['original_baseline_stock'];
-                                    $subtotalRealtimeBaseline += (float)$row['baseline_stock'];
-
                                     // Use adjusted physical if available, otherwise use physical stock
                                     $adjustedPhys = $row['adjusted_physical'] ?? $row['physical_stock'];
                                     $subtotalPhysical += (float)$adjustedPhys;
@@ -931,7 +927,7 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                                 }
                             }
 
-                            // Calculate difference: Total Adjusted Physical - Total Real-Time Baseline
+                            // Calculate difference: Total Adjusted Physical - Real-Time Baseline (product level)
                             $subtotalDifference = $subtotalPhysical - $subtotalRealtimeBaseline;
                             $subtotalDiffAfterAdj = $subtotalDifference; // Same as difference since we already use adjusted physical
                         ?>
