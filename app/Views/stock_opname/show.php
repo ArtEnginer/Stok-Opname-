@@ -911,6 +911,8 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                         // Jika ini last entry dari product yang ada di multiple locations, tampilkan subtotal row
                         if ($isLastEntry && $hasMultipleLocations):
                             // Calculate subtotal untuk product ini
+                            $subtotalOriginalBaseline = 0;
+                            $subtotalRealtimeBaseline = 0;
                             $subtotalPhysical = 0;
                             $subtotalDifference = 0;
                             $subtotalDiffAfterAdj = 0;
@@ -918,18 +920,20 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
 
                             foreach ($productRows[$item['product_id']] as $row) {
                                 if ($row['is_counted']) {
-                                    $subtotalPhysical += (float)$row['physical_stock'];
+                                    $subtotalOriginalBaseline += (float)$row['original_baseline_stock'];
+                                    $subtotalRealtimeBaseline += (float)$row['baseline_stock'];
+
+                                    // Use adjusted physical if available, otherwise use physical stock
                                     $adjustedPhys = $row['adjusted_physical'] ?? $row['physical_stock'];
-                                    $diffAfter = $adjustedPhys - $row['baseline_stock'];
-                                    $subtotalDiffAfterAdj += $diffAfter;
+                                    $subtotalPhysical += (float)$adjustedPhys;
+
                                     $locationCount++;
                                 }
                             }
 
-                            // Recalculate difference: Total Physical - Baseline (bukan sum of individual differences)
-                            // Karena baseline adalah baseline produk secara keseluruhan, bukan per lokasi
-                            $subtotalDifference = $subtotalPhysical - $item['baseline_stock'];
-                            $subtotalDiffAfterAdj = $subtotalPhysical - $item['baseline_stock'];
+                            // Calculate difference: Total Adjusted Physical - Total Real-Time Baseline
+                            $subtotalDifference = $subtotalPhysical - $subtotalRealtimeBaseline;
+                            $subtotalDiffAfterAdj = $subtotalDifference; // Same as difference since we already use adjusted physical
                         ?>
                             <!-- Subtotal Row untuk Multiple Location Product -->
                             <tr class="bg-gradient-to-r from-blue-100 to-blue-50 border-t-2 border-b-2 border-blue-300 font-bold">
@@ -941,13 +945,13 @@ $currentSortDir = $filters['sort_dir'] ?? 'asc';
                                     <span class="text-xs"><?= $locationCount ?> locations counted</span>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-right text-gray-700">
-                                    <?= number_format($item['original_baseline_stock'], 2) ?>
+                                    <?= number_format($subtotalOriginalBaseline, 2) ?>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-right">
                                     <span class="text-gray-500">-</span>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-right text-blue-700 font-bold">
-                                    <?= number_format($item['baseline_stock'], 2) ?>
+                                    <?= number_format($subtotalRealtimeBaseline, 2) ?>
                                 </td>
                                 <td class="px-4 py-3 text-sm text-right">
                                     <span class="text-blue-900 font-bold text-base">

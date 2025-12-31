@@ -1407,13 +1407,28 @@ class StockOpnameController extends BaseController
 
             if ($item['is_counted']) {
                 $groupedItems[$productId]['is_counted'] = true;
-                $groupedItems[$productId]['total_physical_stock'] += (float)$item['physical_stock'];
+
+                // Calculate mutation after count and adjusted physical
+                $mutationAfterCount = 0;
+                if ($item['counted_date']) {
+                    $mutationAfterCount = $this->transactionModel->getMutation(
+                        $item['product_id'],
+                        $item['counted_date'],
+                        $referenceDate
+                    );
+                }
+                $adjustedPhysical = (float)$item['physical_stock'] + $mutationAfterCount;
+
+                // Use adjusted physical for total
+                $groupedItems[$productId]['total_physical_stock'] += $adjustedPhysical;
                 $groupedItems[$productId]['counted_locations']++;
 
                 $locationName = $item['kode_lokasi'] ? $item['kode_lokasi'] . ' - ' . $item['nama_lokasi'] : ($item['location'] ?? 'Unknown');
                 $groupedItems[$productId]['locations'][] = [
                     'name' => $locationName,
-                    'qty' => (float)$item['physical_stock']
+                    'qty' => $adjustedPhysical,
+                    'original_qty' => (float)$item['physical_stock'],
+                    'adjustment' => $mutationAfterCount
                 ];
             }
         }
@@ -1538,13 +1553,18 @@ class StockOpnameController extends BaseController
                 // Build locations text with quantities
                 $locationParts = [];
                 foreach ($item['locations'] as $loc) {
-                    $locationParts[] = $loc['name'] . ' (' . number_format($loc['qty'], 2) . ')';
+                    if ($loc['adjustment'] != 0) {
+                        // Show adjustment if exists
+                        $locationParts[] = $loc['name'] . ' (' . number_format($loc['qty'], 2) . ' | Counted: ' . number_format($loc['original_qty'], 2) . ', Adj: ' . number_format($loc['adjustment'], 2) . ')';
+                    } else {
+                        $locationParts[] = $loc['name'] . ' (' . number_format($loc['qty'], 2) . ')';
+                    }
                 }
                 $locationsText = implode("\n", $locationParts);
 
                 // Add total if multiple locations
                 if ($item['counted_locations'] > 1) {
-                    $locationsText .= "\n\n[TOTAL: " . $item['counted_locations'] . " lokasi]";
+                    $locationsText .= "\n\n[TOTAL ADJUSTED: " . number_format($physicalStock, 2) . " dari " . $item['counted_locations'] . " lokasi]";
                 }
 
                 // Skip if show_variance_only and no variance
