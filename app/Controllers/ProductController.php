@@ -580,4 +580,195 @@ class ProductController extends BaseController
             'count' => count($products)
         ]);
     }
+
+    /**
+     * Show import price form
+     */
+    public function importPrice()
+    {
+        $data = [
+            'title' => 'Import Price Update',
+        ];
+
+        return view('products/import_price', $data);
+    }
+
+    /**
+     * Process import price file
+     */
+    public function processImportPrice()
+    {
+        $file = $this->request->getFile('file');
+
+        if (!$file || !$file->isValid()) {
+            return redirect()->back()->with('error', 'Please select a valid file');
+        }
+
+        $extension = $file->getExtension();
+        $allowedExtensions = ['xlsx', 'xls', 'csv'];
+
+        if (!in_array($extension, $allowedExtensions)) {
+            return redirect()->back()->with('error', 'Invalid file format. Only Excel (.xlsx, .xls) or CSV files are allowed');
+        }
+
+        try {
+            // Load PhpSpreadsheet
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getTempName());
+            $sheet = $spreadsheet->getActiveSheet();
+            $rows = $sheet->toArray();
+
+            // Skip header row
+            array_shift($rows);
+
+            $updated = 0;
+            $notFound = [];
+            $errors = [];
+            $rowNumber = 2; // Start from row 2 (after header)
+
+            $db = \Config\Database::connect();
+            $db->transStart();
+
+            foreach ($rows as $row) {
+                // Skip empty rows
+                if (empty(array_filter($row))) {
+                    $rowNumber++;
+                    continue;
+                }
+
+                // Get data from row
+                $code = trim($row[0] ?? '');
+                $buyPrice = $row[1] ?? null;
+                $sellPrice = $row[2] ?? null;
+
+                if (empty($code)) {
+                    $errors[] = "Row {$rowNumber}: Product code is required";
+                    $rowNumber++;
+                    continue;
+                }
+
+                // Find product by code
+                $product = $this->productModel->where('code', $code)->first();
+
+                if (!$product) {
+                    $notFound[] = "Row {$rowNumber}: Product with code '{$code}' not found";
+                    $rowNumber++;
+                    continue;
+                }
+
+                // Prepare update data
+                $updateData = [];
+
+                if ($buyPrice !== null && $buyPrice !== '') {
+                    $updateData['buy_price'] = floatval($buyPrice);
+                }
+
+                if ($sellPrice !== null && $sellPrice !== '') {
+                    $updateData['sell_price'] = floatval($sellPrice);
+                }
+
+                // Only update if there's data to update
+                if (!empty($updateData)) {
+                    $updateData['updated_at'] = date('Y-m-d H:i:s');
+
+                    if ($this->productModel->update($product['id'], $updateData)) {
+                        $updated++;
+                    } else {
+                        $errors[] = "Row {$rowNumber}: Failed to update product '{$code}'";
+                    }
+                }
+
+                $rowNumber++;
+            }
+
+            $db->transComplete();
+
+            if ($db->transStatus() === false) {
+                return redirect()->back()->with('error', 'Transaction failed. No products were updated.');
+            }
+
+            // Prepare success message
+            $message = "Successfully updated {$updated} product prices";
+
+            if (!empty($notFound)) {
+                $message .= ". " . count($notFound) . " products not found";
+            }
+
+            if (!empty($errors)) {
+                $message .= ". " . count($errors) . " errors occurred";
+            }
+
+            // Store details in session for display if needed
+            if (!empty($notFound) || !empty($errors)) {
+                session()->setFlashdata('import_details', [
+                    'updated' => $updated,
+                    'not_found' => $notFound,
+                    'errors' => $errors
+                ]);
+            }
+
+            return redirect()->to('/products')->with('success', $message);
+        } catch (\Exception $e) {
+            log_message('error', 'Price import failed: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Error reading file: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Download price import template
+     */
+    public function downloadPriceTemplate()
+    {
+        $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Set headers
+        $headers = ['Product Code*', 'Buy Price', 'Sell Price'];
+        $sheet->fromArray($headers, null, 'A1');
+
+        // Add sample data
+        $sampleData = [
+            ['BRG001', 10000, 15000],
+            ['BRG002', 50000, 75000],
+            ['BRG003', 25000, 35000],
+        ];
+        $sheet->fromArray($sampleData, null, 'A2');
+
+        // Add notes
+        $sheet->setCellValue('A6', 'Notes:');
+        $sheet->setCellValue('A7', '1. Product Code is required and must match existing product code in database');
+        $sheet->setCellValue('A8', '2. Leave Buy Price or Sell Price empty if you don\'t want to update it');
+        $sheet->setCellValue('A9', '3. Both prices can be updated at the same time');
+        $sheet->setCellValue('A10', '4. Only existing products will be updated');
+
+        // Style headers
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '4472C4']],
+            'alignment' => ['horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER],
+        ];
+        $sheet->getStyle('A1:C1')->applyFromArray($headerStyle);
+
+        // Style notes
+        $notesStyle = [
+            'font' => ['italic' => true, 'size' => 10],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFFCC']],
+        ];
+        $sheet->getStyle('A6:A10')->applyFromArray($notesStyle);
+
+        // Auto-size columns
+        foreach (range('A', 'C') as $col) {
+            $sheet->getColumnDimension($col)->setAutoSize(true);
+        }
+
+        // Create writer
+        $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+        // Set headers for download
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment;filename="price_update_template.xlsx"');
+        header('Cache-Control: max-age=0');
+
+        $writer->save('php://output');
+        exit;
+    }
 }

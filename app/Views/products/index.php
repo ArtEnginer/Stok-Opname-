@@ -13,7 +13,10 @@
             <i class="fas fa-plus mr-2"></i> Add Product
         </a>
         <a href="<?= base_url('/products/import') ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
-            <i class="fas fa-file-import mr-2"></i> Import
+            <i class="fas fa-file-import mr-2"></i> Import Products
+        </a>
+        <a href="<?= base_url('/products/import-price') ?>" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
+            <i class="fas fa-tags mr-2"></i> Import Prices
         </a>
     </div>
 

@@ -72,6 +72,11 @@ $routes->group('', ['filter' => 'session'], static function (RouteCollection $ro
         $routes->post('import/confirm', [ProductController::class, 'confirmImport']);
         $routes->get('import/template', [ProductController::class, 'downloadTemplate']);
         $routes->get('download-import-log', [ProductController::class, 'downloadImportLog']);
+
+        // Import Price routes
+        $routes->get('import-price', [ProductController::class, 'importPrice']);
+        $routes->post('import-price/process', [ProductController::class, 'processImportPrice']);
+        $routes->get('import-price/template', [ProductController::class, 'downloadPriceTemplate']);
     });
 
     // Product API Routes - Accessible to all logged in users (for Stock Opname search)
